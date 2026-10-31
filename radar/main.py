@@ -28,6 +28,13 @@ log = logging.getLogger("radar")
 PRIORITY = {"new": 2, "drop": 1, "seen": 0}
 
 
+def gmail_credentials() -> tuple[str | None, str | None]:
+    """Google muestra la contraseña de aplicación en bloques con espacios; se eliminan por si se pegó así."""
+    user = (os.environ.get("GMAIL_USER") or "").strip() or None
+    pw = (os.environ.get("GMAIL_APP_PASSWORD") or "").replace(" ", "").replace(" ", "").strip() or None
+    return user, pw
+
+
 def passes_filters(l: dict, z: dict) -> bool:
     if l["price"] > z["precio_max"]:
         return False
@@ -73,7 +80,7 @@ def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
 
     # ---- Idealista: alertas por email ---------------------------------------
     ide = cfg["idealista"]
-    gmail_user, gmail_pw = os.environ.get("GMAIL_USER"), os.environ.get("GMAIL_APP_PASSWORD")
+    gmail_user, gmail_pw = gmail_credentials()
     if ide["alertas_email"] and gmail_user and gmail_pw:
         try:
             unmatched = 0
@@ -211,7 +218,7 @@ def run(args):
     out = ROOT / "out"
     out.mkdir(exist_ok=True)
     (out / "informe.html").write_text(html, encoding="utf-8")
-    gmail_user, gmail_pw = os.environ.get("GMAIL_USER"), os.environ.get("GMAIL_APP_PASSWORD")
+    gmail_user, gmail_pw = gmail_credentials()
     sent = False
     send_failed = False
     if not args.no_email and gmail_user and gmail_pw:

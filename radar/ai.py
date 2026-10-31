@@ -65,4 +65,7 @@ def analyze(listings: list[dict], model: str) -> dict[str, dict]:
             out[l["id"]] = json.loads(text)
         except Exception as e:  # noqa: BLE001 - la IA es un extra; nunca debe tumbar el informe
             log.warning("Análisis IA fallido para %s: %s", l["id"], e)
+            if isinstance(e, (anthropic.AuthenticationError, anthropic.PermissionDeniedError)) or "credit balance" in str(e):
+                log.warning("Sin acceso a la API de Anthropic (clave o saldo): se omite el análisis IA.")
+                break
     return out
