@@ -11,7 +11,7 @@ email:
   puntuacion_minima: 55    # solo entran en el TOP los pisos con puntuación >= esto
 
 web:
-  url: ""                  # p.ej. https://TU_USUARIO.github.io/radar-inmobiliario/ (se pone tras el 1er despliegue)
+  url: "https://cristobaljcl.github.io/Buscador-inmobiliario/"
   max_anuncios: 2000       # anuncios que se publican en el panel (los mejor puntuados)
 
 ia:
