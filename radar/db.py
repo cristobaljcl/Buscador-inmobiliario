@@ -78,7 +78,10 @@ class DB:
                  l.get("m2"), l.get("rooms"), l.get("baths"), l.get("floor"), l.get("description"),
                  l.get("photo"), today, today))
         else:
-            if row["price"] and l["price"] < row["price"]:
+            # Solo es bajada si hay un precio mayor en un día anterior (el histórico guarda un precio por día)
+            if row["price"] and l["price"] < row["price"] and self.conn.execute(
+                    "SELECT 1 FROM price_history WHERE listing_id=? AND day<? AND price>?",
+                    (l["id"], today, l["price"])).fetchone():
                 status = "drop"
             # Mantener la descripción más larga (las alertas de email traen menos texto)
             self.conn.execute(

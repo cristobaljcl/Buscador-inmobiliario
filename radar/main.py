@@ -172,7 +172,7 @@ def run(args):
     fresh = by_score if first_run else [l for l in by_score if l["_status"] in ("new", "drop")]
     top = [l for l in fresh if l["valuation"]["puntuacion"] >= cfg["email"]["puntuacion_minima"]][:cfg["email"]["top_n"]]
     top_ids = {l["id"] for l in top}
-    drops = [l for l in by_score if l["_status"] == "drop" and l["id"] not in top_ids and l["valuation"]["puntuacion"] >= 35]
+    drops = [l for l in by_score if l["_status"] == "drop" and l["valuation"]["bajadas_pct"] and l["id"] not in top_ids and l["valuation"]["puntuacion"] >= 35]
 
     # ---- análisis IA -----------------------------------------------------------
     analyses = {}

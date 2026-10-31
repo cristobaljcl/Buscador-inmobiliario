@@ -82,7 +82,7 @@ def build_email(day_label: str, top: list[dict], drops: list[dict], zone_stats: 
         f'<br><span style="color:{MUTED};font-size:12px">{escape(l["zone_name"])}</span></td>'
         f'<td style="text-align:right">{eur(l["price"])}<br><span style="color:{GREEN};font-size:12px">'
         f'−{l["valuation"]["bajadas_pct"][0]}% · punt. {l["valuation"]["puntuacion"]}</span></td></tr>'
-        for l in drops[:10])
+        for l in drops[:10] if l["valuation"]["bajadas_pct"])
     zone_rows = "".join(
         f'<tr style="border-top:1px solid {LINE}"><td style="padding:4px 0">{escape(z["nombre"])}</td>'
         f'<td style="text-align:center">{z["nuevos"]}</td><td style="text-align:center">{z["activos"]}</td>'
