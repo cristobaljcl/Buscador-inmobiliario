@@ -40,8 +40,8 @@ En **Settings → Secrets and variables → Actions → New repository secret**,
 
 | Secreto | Valor | Obligatorio |
 |---|---|---|
-| `GMAIL_USER` | `cristobalcl85@gmail.com` | Sí |
-| `GMAIL_APP_PASSWORD` | La clave de 16 caracteres del paso 2 | Sí |
+| `GMAIL_USER` | `cristobaljcl85@gmail.com` (cuenta que envía el informe y recibe las alertas de Idealista) | Sí |
+| `GMAIL_APP_PASSWORD` | La clave de 16 caracteres del paso 2, creada **en esa misma cuenta** | Sí |
 | `SITE_PASSWORD` | Una contraseña larga para el panel web | Sí |
 | `ANTHROPIC_API_KEY` | Clave de <https://console.anthropic.com> para el análisis con IA | Recomendado |
 | `IDEALISTA_API_KEY` / `IDEALISTA_API_SECRET` | Credenciales de <https://developers.idealista.com> | Opcional |
@@ -54,7 +54,7 @@ En el móvil, abre la URL y elige "Añadir a pantalla de inicio" para usarla com
 ### 5. Alertas de Idealista (recomendado)
 Idealista bloquea la lectura automática de su web, así que usamos sus **alertas por email**:
 1. En idealista.com, haz una búsqueda por zona: venta, viviendas, hasta 250.000 € y los filtros que quieras.
-2. Pulsa **"Guardar búsqueda"** y activa el **aviso por email inmediato o diario**.
+2. Pulsa **"Guardar búsqueda"** y activa el **aviso por email inmediato o diario**. Las alertas deben llegar al buzón de `GMAIL_USER` (cristobaljcl85@gmail.com): usa esa cuenta en Idealista o reenvía allí los avisos.
 3. Repite con cada zona. El radar lee esos correos cada mañana y asigna cada anuncio a su zona con las palabras de `idealista_match`.
 
 Además, solicita acceso a la API oficial en <https://developers.idealista.com>. Es gratis con cuota limitada. Cuando te lo concedan, añade los dos secretos y el radar la usará automáticamente.
