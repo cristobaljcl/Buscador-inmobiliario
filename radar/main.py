@@ -208,6 +208,7 @@ def run(args):
             "nuevos": sum(1 for l in zl if l["_status"] == "new"), "activos": len(zl),
             "mejor_multiplo": min((l["valuation"]["multiplo"] for l in zl), default=None),
             "alquiler_m2": round(rent_m2, 1) if rent_m2 else None, "venta_m2": round(sale_m2) if sale_m2 else None,
+            "centro": [float(c) for c in z["idealista_api"]["center"].split(",")] if z.get("idealista_api") else None,
         })
 
     # ---- panel web -------------------------------------------------------------

@@ -211,7 +211,9 @@ function render(refit = true) {
   $("#count").textContent = `${VIEW.length} anuncios`;
   $("#grid").innerHTML = VIEW.slice(0, 300).map(card).join("") || `<div class="empty">Sin resultados con estos filtros.</div>`;
   const located = VIEW.filter(l => l.geo).length;
-  $("#mapInfo").textContent = `${located} de ${VIEW.length} anuncios en el mapa`;
+  $("#mapInfo").textContent = DATA.listings.some(l => l.geo)
+    ? `${located} de ${VIEW.length} anuncios en el mapa`
+    : "Las ubicaciones se generan en la próxima ejecución del radar";
   if (MAP && $("#map").classList.contains("open")) drawMarkers(refit);
 }
 
@@ -276,7 +278,12 @@ function drawMarkers(refit) {
     return L.marker(jitter(l), { icon, title: l.title || "" }).bindPopup(() => popup(l), { maxWidth: 240 });
   });
   LAYER.addLayers(markers);
-  if (refit && markers.length) MAP.fitBounds(LAYER.getBounds(), { padding: [30, 30], maxZoom: 15 });
+  if (!refit) return;
+  if (markers.length) return MAP.fitBounds(LAYER.getBounds(), { padding: [30, 30], maxZoom: 15 });
+  // Sin anuncios ubicados: centrar en la zona elegida (o en las zonas de alguna estrategia)
+  const zones = DATA.meta.zonas.filter(z => z.centro && (!$("#fZone").value || z.id === $("#fZone").value));
+  if (zones.length === 1) MAP.setView(zones[0].centro, 10);
+  else if (zones.length) MAP.fitBounds(zones.map(z => z.centro), { padding: [40, 40] });
 }
 
 function popup(l) {
