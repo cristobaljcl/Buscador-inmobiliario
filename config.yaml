@@ -13,6 +13,7 @@ email:
 web:
   url: "https://cristobaljcl.github.io/Buscador-inmobiliario/"
   max_anuncios: 2000       # anuncios que se publican en el panel (los mejor puntuados)
+  mapa_consultas_max: 400  # direcciones nuevas a geocodificar por ejecución (OpenStreetMap, 1/s; se guardan en caché)
 
 ia:
   activada: true           # requiere el secreto ANTHROPIC_API_KEY; si no existe se omite sin error
@@ -87,6 +88,7 @@ zonas:
 
   - id: madrid
     nombre: Madrid
+    provincia: Madrid
     estrategia: larga
     itp: 0.06
     precio_max: 250000
@@ -105,6 +107,7 @@ zonas:
 
   - id: murcia
     nombre: Murcia (costa)
+    provincia: Murcia
     estrategia: vacacional
     itp: 0.08
     precio_max: 250000
@@ -122,6 +125,7 @@ zonas:
 
   - id: alicante
     nombre: Alicante (costa)
+    provincia: Alicante
     estrategia: vacacional
     itp: 0.10
     precio_max: 250000
@@ -138,6 +142,7 @@ zonas:
 
   - id: pontevedra
     nombre: Pontevedra (Rías Baixas)
+    provincia: Pontevedra
     estrategia: vacacional
     itp: 0.08
     precio_max: 250000
@@ -154,6 +159,7 @@ zonas:
 
   - id: coruna
     nombre: A Coruña
+    provincia: A Coruña
     estrategia: vacacional
     itp: 0.08
     precio_max: 250000

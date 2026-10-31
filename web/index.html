@@ -66,6 +66,26 @@
   textarea { width: 100%; min-height: 70px; font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px; background: var(--bg); color: var(--ink); }
   .close { float: right; background: none; border: 0; font-size: 24px; cursor: pointer; color: var(--muted); }
   .desc { font-size: 13px; color: var(--muted); white-space: pre-line; max-height: 160px; overflow: auto; }
+  /* ---- mapa (Leaflet se descarga solo al abrirlo) ---- */
+  .mapbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px;
+            background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .mapbar .btn { padding: 6px 12px; }
+  #map { position: relative; z-index: 0; /* que las capas de Leaflet no tapen la cabecera fija */
+         height: 0; border-radius: 10px; overflow: hidden; margin-bottom: 0; border: 1px solid transparent; transition: height .25s; }
+  #map.open { height: min(60vh, 520px); margin-bottom: 12px; border-color: var(--line); }
+  .pin { background: var(--card); color: var(--ink); border: 2px solid; border-radius: 12px; padding: 1px 6px;
+         font: 700 11px/16px -apple-system, "Segoe UI", Roboto, sans-serif; white-space: nowrap;
+         box-shadow: 0 1px 3px rgba(0,0,0,.35); transform: translate(-50%, -50%); width: max-content; }
+  .pin.fav::before { content: "★ "; }
+  .leaflet-div-icon.pin-wrap { background: none; border: 0; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--card); color: var(--ink); }
+  .leaflet-popup-content { margin: 10px; width: 220px !important; }
+  .pop img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; background: var(--line); display: block; }
+  .pop .price { margin-top: 6px; }
+  .pop .acts { display: flex; gap: 6px; margin-top: 8px; }
+  .pop .acts a, .pop .acts button { flex: 1; text-align: center; padding: 6px; font-size: 12px; border-radius: 6px; }
+  .pop .acts button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; }
+  .leaflet-popup-content-wrapper a.btn { color: #fff; }
 </style>
 </head>
 <body>
@@ -101,6 +121,11 @@
     </div>
   </header>
   <main>
+    <div class="mapbar">
+      <span class="muted" id="mapInfo">Mapa de los anuncios filtrados</span>
+      <button class="btn" id="mapBtn" type="button">🗺️ Ver mapa</button>
+    </div>
+    <div id="map" hidden></div>
     <div class="zones" id="zones"></div>
     <p class="muted" id="count"></p>
     <div class="grid" id="grid"></div>
@@ -157,11 +182,13 @@ function init() {
   $("#zones").innerHTML = DATA.meta.zonas.map(z => `<div class="zone"><b>${esc(z.nombre)}</b>
     ${z.estrategia} · ${z.activos} activos · ${z.nuevos} nuevos<br>alquiler ${z.alquiler_m2 ?? "—"} €/m² · venta ${z.venta_m2 ?? "—"} €/m²</div>`).join("");
   for (const id of ["#q", "#fZone", "#fStrat", "#fState", "#sort", "#fScore", "#fPrice", "#fNew", "#fFav"])
-    $(id).addEventListener("input", render);
+    $(id).addEventListener("input", () => render());
+  $("#mapBtn").addEventListener("click", toggleMap);
   render();
 }
 
-function render() {
+// refit=false cuando el cambio viene de la ficha (favorito/estado), para no mover el mapa
+function render(refit = true) {
   const q = $("#q").value.toLowerCase(), zone = $("#fZone").value, strat = $("#fStrat").value, st = $("#fState").value;
   const minScore = +$("#fScore").value || 0, maxPrice = +$("#fPrice").value || Infinity;
   const onlyNew = $("#fNew").checked, onlyFav = $("#fFav").checked;
@@ -183,6 +210,85 @@ function render() {
   VIEW.sort(sorters[$("#sort").value]);
   $("#count").textContent = `${VIEW.length} anuncios`;
   $("#grid").innerHTML = VIEW.slice(0, 300).map(card).join("") || `<div class="empty">Sin resultados con estos filtros.</div>`;
+  const located = VIEW.filter(l => l.geo).length;
+  $("#mapInfo").textContent = `${located} de ${VIEW.length} anuncios en el mapa`;
+  if (MAP && $("#map").classList.contains("open")) drawMarkers(refit);
+}
+
+// ---- mapa ------------------------------------------------------------------
+const LEAFLET = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+const CLUSTER = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/";
+let MAP = null, LAYER = null, MAP_LOADING = null;
+const loadCss = (href) => document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="${href}">`);
+const loadJs = (src) => new Promise((ok, ko) => {
+  const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s);
+});
+async function loadLeaflet() {
+  loadCss(LEAFLET + "leaflet.min.css"); loadCss(CLUSTER + "MarkerCluster.min.css"); loadCss(CLUSTER + "MarkerCluster.Default.min.css");
+  await loadJs(LEAFLET + "leaflet.min.js");
+  await loadJs(CLUSTER + "leaflet.markercluster.js");
+}
+
+async function toggleMap() {
+  const box = $("#map"), btn = $("#mapBtn");
+  if (box.classList.contains("open")) {
+    box.classList.remove("open"); btn.textContent = "🗺️ Ver mapa";
+    setTimeout(() => { box.hidden = true; }, 250);
+    return;
+  }
+  box.hidden = false; btn.textContent = "Cargando…"; btn.disabled = true;
+  try {
+    MAP_LOADING = MAP_LOADING || loadLeaflet();
+    await MAP_LOADING;
+  } catch {
+    MAP_LOADING = null; btn.disabled = false; btn.textContent = "🗺️ Ver mapa";
+    $("#mapInfo").textContent = "No se pudo cargar el mapa (¿sin conexión?).";
+    return;
+  }
+  requestAnimationFrame(() => box.classList.add("open"));
+  btn.textContent = "Ocultar mapa"; btn.disabled = false;
+  if (!MAP) {
+    MAP = L.map(box, { zoomControl: true }).setView([40.2, -3.7], 6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(MAP);
+    LAYER = L.markerClusterGroup({ maxClusterRadius: 45, showCoverageOnHover: false, spiderfyOnMaxZoom: true });
+    MAP.addLayer(LAYER);
+  }
+  setTimeout(() => { MAP.invalidateSize(); drawMarkers(true); }, 260);
+}
+
+// Desplazamiento fijo por anuncio: los que comparten barrio/municipio no quedan apilados en el mismo punto
+function jitter(l) {
+  const [lat, lon, prec] = l.geo;
+  const r = { calle: 0.0004, barrio: 0.003, municipio: 0.007 }[prec] || 0;
+  let h = 0; for (const c of l.id) h = (h * 31 + c.charCodeAt(0)) | 0;
+  const a = (h % 360) * Math.PI / 180, d = r * (0.3 + ((h >>> 8) % 70) / 100);
+  return [lat + d * Math.sin(a), lon + d * Math.cos(a) / Math.cos(lat * Math.PI / 180)];
+}
+const shortPrice = (p) => p >= 1e6 ? (p / 1e6).toFixed(2).replace(".", ",") + " M€" : Math.round(p / 1000) + " k€";
+
+function drawMarkers(refit) {
+  LAYER.clearLayers();
+  const markers = VIEW.filter(l => l.geo).map(l => {
+    const u = userOf(l.id);
+    const icon = L.divIcon({ className: "pin-wrap", iconSize: null,
+      html: `<div class="pin${u.fav ? " fav" : ""}" style="border-color:${color(l.v.puntuacion)}">${shortPrice(l.price)}</div>` });
+    return L.marker(jitter(l), { icon, title: l.title || "" }).bindPopup(() => popup(l), { maxWidth: 240 });
+  });
+  LAYER.addLayers(markers);
+  if (refit && markers.length) MAP.fitBounds(LAYER.getBounds(), { padding: [30, 30], maxZoom: 15 });
+}
+
+function popup(l) {
+  const v = l.v, prec = l.geo[2];
+  return `<div class="pop">
+    ${l.photo ? `<img src="${esc(l.photo)}" alt="">` : ""}
+    <div class="price">${eur(l.price)} <span class="score" style="background:${color(v.puntuacion)}">${v.puntuacion}</span></div>
+    <div style="font-size:13px">${esc(l.title)}</div>
+    <div class="muted">${l.m2 ?? "?"} m² · ${l.rooms ?? "?"} hab · múltiplo ${v.multiplo}</div>
+    <div class="muted">${esc(l.location)}${prec !== "calle" ? ` · <i>ubicación aproximada (${prec})</i>` : ""}</div>
+    <div class="acts"><button type="button" onclick="openDetail('${esc(l.id)}')">Ficha y cálculo</button>
+      <a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">Anuncio ↗</a></div></div>`;
 }
 
 function card(l) {
@@ -292,8 +398,8 @@ function openDetail(id) {
   };
   $("#dlgBody").querySelectorAll(".calc input").forEach(i => i.addEventListener("input", calc));
   calc();
-  $("#uState").addEventListener("change", e => { setUser(id, { estado: e.target.value }); render(); });
-  $("#uFav").addEventListener("change", e => { setUser(id, { fav: e.target.checked }); render(); });
+  $("#uState").addEventListener("change", e => { setUser(id, { estado: e.target.value }); render(false); });
+  $("#uFav").addEventListener("change", e => { setUser(id, { fav: e.target.checked }); render(false); });
   $("#uNotes").addEventListener("input", e => setUser(id, { notas: e.target.value }));
   $("#dlg").showModal();
 }

@@ -7,7 +7,7 @@ Cada mañana a las **7:00 (hora de Madrid)**, el radar:
 3. Valora cada piso con la metodología de *(Invierte en) Tu Primer Piso*: regla del 150, rentabilidad bruta y neta, cash flow con hipoteca, ROCE, tipo de piso según el libro y precio de oferta para alcanzar múltiplo 150.
 4. Puntúa cada piso de 0 a 100 y pide a Claude un análisis del TOP: veredicto, riesgos y preguntas para el vendedor.
 5. Te envía el informe a **cristobalcl85@gmail.com**.
-6. Publica un **panel web cifrado** (móvil y PC) con filtros, calculadora editable, favoritos, estados y notas.
+6. Publica un **panel web cifrado** (móvil y PC) con filtros, mapa de precios, calculadora editable, favoritos, estados y notas.
 
 Zonas configuradas por defecto (en [config.yaml](config.yaml)):
 
@@ -90,4 +90,5 @@ python -m radar.main --force --no-email    # genera out/informe.html y docs/ (si
 - pisos.com se lee con pocas peticiones y pausas. Si el portal cambia su HTML, el email mostrará una incidencia y habrá que ajustar `radar/sources/pisos_com.py`.
 - El formato de los emails de Idealista puede cambiar. El lector es heurístico: busca enlaces `/inmueble/<id>`.
 - Favoritos, estados y notas del panel se guardan en cada dispositivo, no se sincronizan entre móvil y PC.
+- El mapa usa ubicaciones **aproximadas**: los portales no publican coordenadas, así que se geocodifica con OpenStreetMap la calle del título o, si no la hay, el barrio o el municipio. Cada dirección se consulta una sola vez y se guarda en la base de datos. Como máximo se hacen `web.mapa_consultas_max` consultas por ejecución; si hay más, se completan en los días siguientes.
 - Las cifras son orientativas y no constituyen asesoramiento financiero. Antes de ofertar, verifica la nota simple, las derramas, la cédula de habitabilidad y la normativa VUT del municipio y de la comunidad de propietarios.

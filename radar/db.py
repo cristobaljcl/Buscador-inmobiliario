@@ -49,6 +49,11 @@ CREATE TABLE IF NOT EXISTS api_usage (
     month TEXT PRIMARY KEY,
     requests INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS geocache (
+    query TEXT PRIMARY KEY,         -- dirección consultada a Nominatim
+    lat REAL,                       -- NULL si no se encontró
+    lon REAL
+);
 """
 
 
@@ -147,3 +152,13 @@ class DB:
     def add_api_request(self, month: str):
         self.conn.execute("INSERT INTO api_usage VALUES (?, 1) ON CONFLICT(month) DO UPDATE SET requests=requests+1",
                           (month,))
+
+    # ---- geocodificación (mapa) --------------------------------------------
+    def geocache_get(self, query: str) -> tuple[float | None, float | None] | None:
+        """(lat, lon); (None, None) si ya se consultó sin resultado; None si nunca se consultó."""
+        row = self.conn.execute("SELECT lat, lon FROM geocache WHERE query=?", (query,)).fetchone()
+        return (row["lat"], row["lon"]) if row else None
+
+    def geocache_put(self, query: str, point: tuple[float, float] | None):
+        self.conn.execute("INSERT OR REPLACE INTO geocache VALUES (?,?,?)",
+                          (query, *(point if point else (None, None))))

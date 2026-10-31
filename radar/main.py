@@ -18,6 +18,7 @@ import yaml
 
 from radar import ai, mailer, report, site
 from radar.db import DB
+from radar.geocode import geocode_listings
 from radar.sources.idealista_api import IdealistaAPI
 from radar.sources.idealista_email import fetch_alerts
 from radar.sources.pisos_com import PisosCom
@@ -212,11 +213,13 @@ def run(args):
     # ---- panel web -------------------------------------------------------------
     site_pw = os.environ.get("SITE_PASSWORD")
     if site_pw:
+        published = by_score[:cfg["web"]["max_anuncios"]]
+        errors.extend(geocode_listings(db, published, zones, cfg["web"].get("mapa_consultas_max", 400)))
         web_items = []
-        for l in by_score[:cfg["web"]["max_anuncios"]]:
+        for l in published:
             web_items.append({k: l.get(k) for k in ("id", "source", "zone", "zone_name", "url", "title", "location",
                                                     "price", "m2", "rooms", "baths", "floor", "photo", "first_seen",
-                                                    "last_seen", "otros_portales")}
+                                                    "last_seen", "otros_portales", "geo")}
                              | {"desc": (l.get("description") or "")[:1500], "v": l["valuation"],
                                 "hist": db.price_history(l["id"]), "status": l["_status"]})
         meta = {"generado": now.strftime("%d/%m/%Y %H:%M"), "hoy": today, "zonas": zone_stats,
