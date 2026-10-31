@@ -1,0 +1,166 @@
+# ============================================================================
+#  RADAR INMOBILIARIO · Configuración
+#  Edita este archivo para cambiar zonas, filtros e hipótesis de cálculo.
+#  Las cifras de mercado (ADR, ocupación, ITP, alquiler €/m²) son estimaciones
+#  iniciales: revísalas y ajústalas con tu conocimiento local.
+# ============================================================================
+
+email:
+  destinatario: cristobalcl85@gmail.com
+  top_n: 8                 # nº máximo de oportunidades TOP en el correo
+  puntuacion_minima: 55    # solo entran en el TOP los pisos con puntuación >= esto
+
+web:
+  url: ""                  # p.ej. https://TU_USUARIO.github.io/radar-inmobiliario/ (se pone tras el 1er despliegue)
+  max_anuncios: 2000       # anuncios que se publican en el panel (los mejor puntuados)
+
+ia:
+  activada: true           # requiere el secreto ANTHROPIC_API_KEY; si no existe se omite sin error
+  modelo: claude-opus-5-5
+  analizar_top: 5          # nº de pisos del TOP que reciben análisis de IA
+
+# Hipótesis de financiación (método "Tu Primer Piso": hipoteca a tipo fijo)
+financiacion:
+  ltv: 0.80                # % del precio que financia el banco
+  interes: 0.029           # TIN fijo anual
+  anios: 30
+  gastos_compra_pct: 0.02  # notaría + registro + gestoría + tasación (aprox.)
+
+# Gastos de explotación (larga duración)
+gastos_larga:
+  comunidad_mes: 60
+  ibi_pct_precio: 0.003    # IBI anual aprox. como % del precio
+  seguro_hogar_anual: 200
+  seguro_impago_pct: 0.04  # % de la renta anual
+  vacio_pct: 0.05          # % de la renta anual (meses vacío)
+  mantenimiento_pct: 0.06  # % de la renta anual
+
+# Gastos de explotación (vacacional)
+gastos_vacacional:
+  comunidad_mes: 60
+  ibi_pct_precio: 0.003
+  seguro_anual: 300
+  gestion_pct: 0.20        # gestora (check-in, limpieza coordinada, precios)
+  plataforma_pct: 0.15     # comisión Airbnb/Booking
+  suministros_mes: 140     # luz, agua, internet, consumibles
+  mantenimiento_pct: 0.06
+  mobiliario: 7000         # equipamiento inicial
+  tope_vs_larga: 1.6       # el ingreso neto vacacional no puede superar 1,6× el alquiler de larga duración del barrio
+  exigencia_multiplo: 1.25 # en la puntuación, el múltiplo vacacional se penaliza un 25% (más gestión y riesgo normativo)
+  multiplicador_hab: {0: 0.75, 1: 0.8, 2: 1.0, 3: 1.25, 4: 1.45, 5: 1.6}
+
+# Estimación de reforma según palabras clave del anuncio (€/m²)
+reforma:
+  integral: {eur_m2: 450, palabras: ["a reformar", "para reformar", "necesita reforma", "reforma integral", "para actualizar entero"]}
+  parcial:  {eur_m2: 150, palabras: ["a actualizar", "para actualizar", "necesita actualizar", "lavado de cara", "a modernizar"]}
+
+# Señales de oportunidad y de riesgo (búsqueda en título + descripción)
+senales:
+  oportunidad: ["urge", "urgente", "herencia", "oportunidad", "ocasión", "negociable", "bajada de precio",
+                "precio rebajado", "liquidación", "inversores", "rentabilidad", "a reformar", "para reformar"]
+  alquilado: ["alquilado", "con inquilino", "inquilino actual", "renta actual"]
+  riesgo: ["ocupado", "ocupada", "okupa", "ocupación", "sin posesión", "no se puede visitar", "nuda propiedad",
+           "usufructo", "subasta", "cesión de remate", "sin cédula", "sin cedula", "uso turístico no",
+           "no apto vivienda", "local reconvertido", "derecho de uso", "proindiviso", "sin financiación",
+           "no se puede financiar"]
+
+# Idealista (ver README): alertas por email (IMAP de Gmail) y API oficial
+idealista:
+  alertas_email: true
+  dias_atras: 3
+  api:
+    activada: true                 # solo funciona si existen IDEALISTA_API_KEY e IDEALISTA_API_SECRET
+    peticiones_por_ejecucion: 3    # la cuota gratuita ronda 100/mes → 3/día
+
+pisos_com:
+  paginas_venta: 3          # 30 anuncios por página, ordenados por más recientes
+  paginas_alquiler: 2       # para calcular €/m² de alquiler real por barrio
+  pausa_segundos: [2.5, 5]  # pausa aleatoria entre peticiones (respeto al portal)
+
+# ----------------------------------------------------------------------------
+#  ZONAS
+#  estrategia: larga | vacacional
+#  slugs: rutas de pisos.com (https://www.pisos.com/venta/<slug>/)
+#  idealista_match: palabras para asignar a esta zona los anuncios de las alertas de Idealista
+# ----------------------------------------------------------------------------
+zonas:
+
+  - id: madrid
+    nombre: Madrid
+    estrategia: larga
+    itp: 0.06
+    precio_max: 250000
+    m2_min: 35
+    habitaciones_min: 1
+    excluir_bajos: false
+    alquiler_m2_defecto: 20.0
+    slugs: [pisos-madrid_capital_zona_urbana, pisos-mostoles, pisos-alcorcon, pisos-getafe,
+            pisos-leganes, pisos-fuenlabrada]
+    idealista_match: [madrid, móstoles, mostoles, alcorcón, alcorcon, getafe, leganés, leganes, fuenlabrada]
+    idealista_api: {center: "40.4168,-3.7038", distance: 15000}
+    aviso_normativo: "Zona tensionada (Ley de Vivienda): posibles topes al alquiler en nuevos contratos. Verificar índice de referencia."
+
+  - id: murcia
+    nombre: Murcia (costa)
+    estrategia: vacacional
+    itp: 0.08
+    precio_max: 250000
+    m2_min: 40
+    habitaciones_min: 1
+    excluir_bajos: false
+    alquiler_m2_defecto: 9.0
+    adr_base: 90          # €/noche para 2 habitaciones
+    ocupacion: 0.50
+    slugs: [pisos-cartagena, pisos-san_javier, pisos-los_alcazares, pisos-san_pedro_del_pinatar,
+            pisos-mazarron, pisos-aguilas]
+    idealista_match: [cartagena, "la manga", "san javier", "los alcázares", "los alcazares", "san pedro del pinatar", mazarrón, mazarron, águilas, aguilas, murcia]
+    idealista_api: {center: "37.6719,-0.8270", distance: 35000}
+    aviso_normativo: "Desde 2025 una nueva VUT requiere aprobación de 3/5 de la comunidad (LPH) y registro único estatal. Verificar normativa municipal."
+
+  - id: alicante
+    nombre: Alicante (costa)
+    estrategia: vacacional
+    itp: 0.10
+    precio_max: 250000
+    m2_min: 40
+    habitaciones_min: 1
+    excluir_bajos: false
+    alquiler_m2_defecto: 11.0
+    adr_base: 105
+    ocupacion: 0.60
+    slugs: [pisos-torrevieja, pisos-santa_pola, pisos-benidorm, pisos-alicante_alacant, pisos-denia]
+    idealista_match: [torrevieja, "santa pola", benidorm, alicante, alacant, dénia, denia]
+    idealista_api: {center: "38.3452,-0.4810", distance: 40000}
+    aviso_normativo: "C. Valenciana (DL 9/2024) endurece licencias VUT; Alicante ciudad mantiene moratoria de nuevas licencias. Verificar municipio y comunidad (3/5 LPH)."
+
+  - id: pontevedra
+    nombre: Pontevedra (Rías Baixas)
+    estrategia: vacacional
+    itp: 0.08
+    precio_max: 250000
+    m2_min: 40
+    habitaciones_min: 1
+    excluir_bajos: false
+    alquiler_m2_defecto: 10.0
+    adr_base: 110
+    ocupacion: 0.42
+    slugs: [pisos-sanxenxo, pisos-vigo, pisos-pontevedra_capital, pisos-o_grove, pisos-baiona]
+    idealista_match: [sanxenxo, vigo, pontevedra, "o grove", baiona, cangas]
+    idealista_api: {center: "42.3500,-8.7500", distance: 35000}
+    aviso_normativo: "Galicia exige inscripción en el REAT. Fuerte estacionalidad (julio-agosto). Verificar ordenanza municipal (Vigo regula VUT en edificios residenciales)."
+
+  - id: coruna
+    nombre: A Coruña
+    estrategia: vacacional
+    itp: 0.08
+    precio_max: 250000
+    m2_min: 40
+    habitaciones_min: 1
+    excluir_bajos: false
+    alquiler_m2_defecto: 11.0
+    adr_base: 95
+    ocupacion: 0.55
+    slugs: [pisos-a_coruna_capital, pisos-santiago_de_compostela, pisos-ferrol]
+    idealista_match: ["a coruña", "a coruna", coruña, santiago, ferrol]
+    idealista_api: {center: "43.3623,-8.4115", distance: 30000}
+    aviso_normativo: "A Coruña y Santiago han restringido mucho las VUT en pisos (en general solo bajos/1ª planta con acceso propio). Comprueba si el anuncio encaja; si no, valora larga duración."

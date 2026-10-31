@@ -1,0 +1,59 @@
+name: Radar inmobiliario diario
+
+on:
+  schedule:
+    # GitHub usa UTC. Dos disparos cubren el horario de verano (05:00 UTC = 7:00) e invierno (06:00 UTC = 7:00).
+    # El script solo actúa a partir de las 7:00 de Madrid y una única vez al día.
+    - cron: "0 5 * * *"
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ejecutar ya (ignorar hora y envío previo)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Ejecutar radar
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IDEALISTA_API_KEY: ${{ secrets.IDEALISTA_API_KEY }}
+          IDEALISTA_API_SECRET: ${{ secrets.IDEALISTA_API_SECRET }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
+            python -m radar.main --force
+          else
+            python -m radar.main
+          fi
+
+      - name: Guardar base de datos y panel
+        if: always()
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "radar-bot@users.noreply.github.com"
+          for p in data docs; do [ -e "$p" ] && git add "$p"; done
+          git diff --cached --quiet || git commit -m "Radar $(date -u +%F)"
+          git push
