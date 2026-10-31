@@ -9,6 +9,7 @@ import argparse
 import logging
 import os
 import sys
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -35,7 +36,18 @@ def gmail_credentials() -> tuple[str | None, str | None]:
     return user, pw
 
 
+def normalize(text: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
+
+
+def excluded_area(l: dict, z: dict) -> bool:
+    text = normalize(f"{l.get('location') or ''} {l.get('title') or ''}")
+    return any(normalize(b) in text for b in z.get("excluir_barrios", []))
+
+
 def passes_filters(l: dict, z: dict) -> bool:
+    if excluded_area(l, z):
+        return False
     if l["price"] > z["precio_max"]:
         return False
     if l.get("m2") and l["m2"] < z["m2_min"]:
@@ -153,7 +165,8 @@ def run(args):
     db.conn.commit()
 
     zones = {z["id"]: z for z in cfg["zonas"]}
-    active = [l for l in db.active_listings(today) if l["zone"] in zones]
+    # El filtro de barrios también se aplica a lo ya guardado, por si la lista cambia
+    active = [l for l in db.active_listings(today) if l["zone"] in zones and not excluded_area(l, zones[l["zone"]])]
 
     # ---- valoración ----------------------------------------------------------
     rent_models, sale_models = {}, {}

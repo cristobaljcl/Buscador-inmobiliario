@@ -93,6 +93,9 @@ zonas:
     m2_min: 35
     habitaciones_min: 1
     excluir_bajos: false
+    # Barrios/distritos descartados (se buscan en la ubicación y el título, sin distinguir tildes ni mayúsculas).
+    # "vallecas" cubre Puente de Vallecas, Villa de Vallecas y Ensanche de Vallecas.
+    excluir_barrios: ["san cristóbal", vallecas, "santa eugenia"]
     alquiler_m2_defecto: 20.0
     slugs: [pisos-madrid_capital_zona_urbana, pisos-mostoles, pisos-alcorcon, pisos-getafe,
             pisos-leganes, pisos-fuenlabrada]
