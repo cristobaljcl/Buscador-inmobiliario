@@ -2,9 +2,11 @@ name: Radar inmobiliario diario
 
 on:
   schedule:
-    # GitHub usa UTC. Dos disparos cubren el horario de verano (05:00 UTC = 7:00) e invierno (06:00 UTC = 7:00).
-    # El script solo actúa a partir de las 7:00 de Madrid y una única vez al día.
-    - cron: "0 5 * * *"
+    # GitHub usa UTC y suele arrancar con retraso. Se busca a las 5:30 de Madrid (verano 03:30 UTC,
+    # invierno 04:30 UTC) y el script retiene los emails hasta las 7:00. El disparo de las 06:00 UTC
+    # es de reserva por si los anteriores fallan; el script solo envía una vez al día.
+    - cron: "30 3 * * *"
+    - cron: "30 4 * * *"
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
@@ -23,7 +25,7 @@ concurrency:
 jobs:
   radar:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 150   # incluye la espera hasta las 7:00
     steps:
       - uses: actions/checkout@v4
 

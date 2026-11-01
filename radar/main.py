@@ -1,7 +1,7 @@
 """Orquestador diario del Radar Inmobiliario.
 
 Uso:
-    python -m radar.main                 # ejecución programada (solo actúa a partir de las 7:00 de Madrid, 1 vez/día)
+    python -m radar.main                 # ejecución programada: busca desde las 5:15 de Madrid y envía a las 7:00, 1 vez/día
     python -m radar.main --force         # ejecutar ya, ignorando hora y envío previo
     python -m radar.main --force --no-email   # sin enviar correo (guarda out/informe.html)
 """
@@ -9,6 +9,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 import unicodedata
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -29,6 +30,8 @@ ROOT = Path(__file__).resolve().parent.parent
 TZ = ZoneInfo("Europe/Madrid")
 log = logging.getLogger("radar")
 PRIORITY = {"new": 2, "drop": 1, "seen": 0}
+START = (5, 15)    # hora de Madrid a partir de la cual actúa la ejecución programada
+SEND_AT = (7, 0)   # hora de Madrid a la que salen los emails
 
 
 def gmail_credentials() -> tuple[str | None, str | None]:
@@ -177,7 +180,8 @@ def run(args):
     today = now.date().isoformat()
     db = DB(ROOT / "data" / "radar.db")
 
-    if not args.force and (now.hour < 7 or db.already_sent(today)):
+    # Se arranca a las 5:30 para tener la búsqueda hecha y el email se retiene hasta la hora de envío
+    if not args.force and ((now.hour, now.minute) < START or db.already_sent(today)):
         log.info("Fuera de horario o informe ya enviado hoy (%s %02d:%02d). Nada que hacer.", today, now.hour, now.minute)
         db.close()
         return
@@ -255,6 +259,12 @@ def run(args):
         errors.append("SITE_PASSWORD no configurada: no se ha actualizado el panel web.")
 
     # ---- email -------------------------------------------------------------------
+    send_at = now.replace(hour=SEND_AT[0], minute=SEND_AT[1], second=0, microsecond=0)
+    if not args.force and not args.no_email and datetime.now(TZ) < send_at:
+        wait = (send_at - datetime.now(TZ)).total_seconds()
+        log.info("Búsqueda terminada; se espera %d min para enviar a las %02d:%02d", wait // 60, *SEND_AT)
+        time.sleep(wait)
+        now = datetime.now(TZ)
     emails = [("informe.html", cfg["email"]["destinatario"],
                *report.build_email(now.strftime("%d/%m"), top, drops,
                                    [s for s in zone_stats if s["id"] not in own_report], analyses, errors,
