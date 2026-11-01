@@ -107,7 +107,7 @@
     <div class="filters">
       <input type="search" id="q" placeholder="Buscar barrio, calle, texto…">
       <select id="fZone"><option value="">Todas las zonas</option></select>
-      <select id="fStrat"><option value="">Estrategia</option><option value="larga">Larga duración</option><option value="vacacional">Vacacional</option></select>
+      <select id="fStrat"><option value="">Estrategia</option></select>
       <select id="fState"><option value="">Todos los estados</option></select>
       <select id="sort">
         <option value="score">Mejor puntuación</option><option value="mult">Menor múltiplo</option>
@@ -141,6 +141,10 @@ const $ = (s) => document.querySelector(s);
 const eur = (x) => x == null ? "—" : Math.round(x).toLocaleString("es-ES") + " €";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const color = (s) => s >= 70 ? "var(--good)" : s >= 50 ? "var(--mid)" : "var(--bad)";
+// Nombres de estrategia desde config.yaml (los datos antiguos no los traen)
+const STRATS = () => DATA.meta.estrategias || { larga: "Larga duración", vacacional: "Vacacional" };
+// En la búsqueda de vivienda propia la puntuación de inversión no aplica: se muestran todas
+const isHome = (l) => l.v.estrategia === "jubilacion";
 
 // ---- estado local por dispositivo (favoritos, estados, notas) -------------
 function store() { try { return JSON.parse(localStorage.getItem("radar-user") || "{}"); } catch { return {}; } }
@@ -179,8 +183,10 @@ function init() {
   $("#gen").textContent = "actualizado " + DATA.meta.generado;
   for (const z of DATA.meta.zonas) $("#fZone").insertAdjacentHTML("beforeend", `<option value="${z.id}">${esc(z.nombre)}</option>`);
   for (const s of STATES) $("#fState").insertAdjacentHTML("beforeend", `<option>${s}</option>`);
+  for (const [k, name] of Object.entries(STRATS()))
+    $("#fStrat").insertAdjacentHTML("beforeend", `<option value="${esc(k)}">${esc(name)}</option>`);
   $("#zones").innerHTML = DATA.meta.zonas.map(z => `<div class="zone"><b>${esc(z.nombre)}</b>
-    ${z.estrategia} · ${z.activos} activos · ${z.nuevos} nuevos<br>alquiler ${z.alquiler_m2 ?? "—"} €/m² · venta ${z.venta_m2 ?? "—"} €/m²</div>`).join("");
+    ${esc(STRATS()[z.estrategia] || z.estrategia)} · ${z.activos} activos · ${z.nuevos} nuevos<br>alquiler ${z.alquiler_m2 ?? "—"} €/m² · venta ${z.venta_m2 ?? "—"} €/m²</div>`).join("");
   for (const id of ["#q", "#fZone", "#fStrat", "#fState", "#sort", "#fScore", "#fPrice", "#fNew", "#fFav"])
     $(id).addEventListener("input", () => render());
   $("#mapBtn").addEventListener("click", toggleMap);
@@ -198,7 +204,7 @@ function render(refit = true) {
     if (strat && l.v.estrategia !== strat) return false;
     if (st && (u.estado || "Nuevo") !== st) return false;
     if (!st && u.estado === "Descartado") return false;
-    if (l.v.puntuacion < minScore || l.price > maxPrice) return false;
+    if ((!isHome(l) && l.v.puntuacion < minScore) || l.price > maxPrice) return false;
     if (onlyNew && l.first_seen !== DATA.meta.hoy) return false;
     if (onlyFav && !u.fav) return false;
     if (q && !`${l.title} ${l.location} ${l.desc}`.toLowerCase().includes(q)) return false;
@@ -274,7 +280,7 @@ function drawMarkers(refit) {
   const markers = VIEW.filter(l => l.geo).map(l => {
     const u = userOf(l.id);
     const icon = L.divIcon({ className: "pin-wrap", iconSize: null,
-      html: `<div class="pin${u.fav ? " fav" : ""}" style="border-color:${color(l.v.puntuacion)}">${shortPrice(l.price)}</div>` });
+      html: `<div class="pin${u.fav ? " fav" : ""}" style="border-color:${isHome(l) ? "var(--accent)" : color(l.v.puntuacion)}">${shortPrice(l.price)}</div>` });
     return L.marker(jitter(l), { icon, title: l.title || "" }).bindPopup(() => popup(l), { maxWidth: 240 });
   });
   LAYER.addLayers(markers);
@@ -290,7 +296,7 @@ function popup(l) {
   const v = l.v, prec = l.geo[2];
   return `<div class="pop">
     ${l.photo ? `<img src="${esc(l.photo)}" alt="">` : ""}
-    <div class="price">${eur(l.price)} <span class="score" style="background:${color(v.puntuacion)}">${v.puntuacion}</span></div>
+    <div class="price">${eur(l.price)} ${isHome(l) ? "" : `<span class="score" style="background:${color(v.puntuacion)}">${v.puntuacion}</span>`}</div>
     <div style="font-size:13px">${esc(l.title)}</div>
     <div class="muted">${l.m2 ?? "?"} m² · ${l.rooms ?? "?"} hab · múltiplo ${v.multiplo}</div>
     <div class="muted">${esc(l.location)}${prec !== "calle" ? ` · <i>ubicación aproximada (${prec})</i>` : ""}</div>
@@ -309,14 +315,17 @@ function card(l) {
   return `<div class="card" onclick="openDetail('${esc(l.id)}')">
     ${l.photo ? `<img loading="lazy" src="${esc(l.photo)}" alt="">` : ""}
     <div class="body">
-      <span class="score" style="background:${color(v.puntuacion)}">${v.puntuacion}</span>
+      ${isHome(l) ? "" : `<span class="score" style="background:${color(v.puntuacion)}">${v.puntuacion}</span>`}
       <div class="muted">${u.fav ? "★ " : ""}${esc(l.zone_name)} · ${esc(l.source)}</div>
       <div class="price">${eur(l.price)}</div>
       <div class="muted">${l.m2 ?? "?"} m² · ${l.rooms ?? "?"} hab · ${esc(l.floor || "")}</div>
       <div style="font-size:13px">${esc(l.title)}</div>
       <div class="muted">${esc(l.location)}</div>
-      <div class="kpis"><div><b>${v.multiplo}</b><span>múltiplo</span></div><div><b>${v.rent_neta}%</b><span>neta</span></div>
-        <div><b>${eur(v.cashflow_mes)}</b><span>cash flow</span></div><div><b>${v.roce}%</b><span>ROCE</span></div></div>
+      ${isHome(l)
+        ? `<div class="kpis"><div><b>${l.m2 ? eur(l.price / l.m2) : "—"}</b><span>€/m²</span></div><div><b>${l.m2 ?? "?"}</b><span>m²</span></div>
+            <div><b>${l.rooms ?? "?"}</b><span>hab</span></div><div><b>${l.first_seen.slice(8, 10)}/${l.first_seen.slice(5, 7)}</b><span>publicado</span></div></div>`
+        : `<div class="kpis"><div><b>${v.multiplo}</b><span>múltiplo</span></div><div><b>${v.rent_neta}%</b><span>neta</span></div>
+            <div><b>${eur(v.cashflow_mes)}</b><span>cash flow</span></div><div><b>${v.roce}%</b><span>ROCE</span></div></div>`}
       <div class="chips">${chips.join("")}</div>
     </div></div>`;
 }

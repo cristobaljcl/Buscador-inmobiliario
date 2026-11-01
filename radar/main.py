@@ -10,7 +10,7 @@ import logging
 import os
 import sys
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -42,8 +42,12 @@ def normalize(text: str) -> str:
 
 
 def excluded_area(l: dict, z: dict) -> bool:
+    """Fuera de la zona: barrio en la lista negra, o no menciona ningún término de 'exigir_ubicacion'."""
     text = normalize(f"{l.get('location') or ''} {l.get('title') or ''}")
-    return any(normalize(b) in text for b in z.get("excluir_barrios", []))
+    if any(normalize(b) in text for b in z.get("excluir_barrios", [])):
+        return True
+    required = z.get("exigir_ubicacion")
+    return bool(required) and not any(normalize(w) in text for w in required)
 
 
 def passes_filters(l: dict, z: dict) -> bool:
@@ -80,11 +84,11 @@ def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
     pisos = PisosCom(tuple(pc["pausa_segundos"]))
     for z in cfg["zonas"]:
         for slug in z["slugs"]:
-            for r in pisos.rentals(slug, pc["paginas_alquiler"]):
+            for r in pisos.rentals(slug, z.get("paginas_alquiler", pc["paginas_alquiler"])):
                 if r.get("m2") and r["price"] < 15000:
                     db.add_rent_sample({"id": f"pisos:{r['code']}", "zone": z["id"], "location": r["location"],
                                         "price": r["price"], "m2": r["m2"]}, today)
-            sales = pisos.sales(slug, z["precio_max"], pc["paginas_venta"])
+            sales = pisos.sales(slug, z["precio_max"], z.get("paginas_venta", pc["paginas_venta"]))
             log.info("pisos.com %s: %d anuncios de venta", slug, len(sales))
             for s in sales:
                 if passes_filters(s, z):
@@ -183,10 +187,13 @@ def run(args):
 
     listings = dedupe(active)
     by_score = sorted(listings, key=lambda l: -l["valuation"]["puntuacion"])
-    fresh = by_score if first_run else [l for l in by_score if l["_status"] in ("new", "drop")]
+    # Las zonas con informe propio (p. ej. Jubilación gallinos) no entran en el informe de inversión
+    own_report = {zid for zid, z in zones.items() if z.get("informe")}
+    investing = [l for l in by_score if l["zone"] not in own_report]
+    fresh = investing if first_run else [l for l in investing if l["_status"] in ("new", "drop")]
     top = [l for l in fresh if l["valuation"]["puntuacion"] >= cfg["email"]["puntuacion_minima"]][:cfg["email"]["top_n"]]
     top_ids = {l["id"] for l in top}
-    drops = [l for l in by_score if l["_status"] == "drop" and l["valuation"]["bajadas_pct"] and l["id"] not in top_ids and l["valuation"]["puntuacion"] >= 35]
+    drops = [l for l in investing if l["_status"] == "drop" and l["valuation"]["bajadas_pct"] and l["id"] not in top_ids and l["valuation"]["puntuacion"] >= 35]
 
     # ---- análisis IA -----------------------------------------------------------
     analyses = {}
@@ -224,30 +231,43 @@ def run(args):
                              | {"desc": (l.get("description") or "")[:1500], "v": l["valuation"],
                                 "hist": db.price_history(l["id"]), "status": l["_status"]})
         meta = {"generado": now.strftime("%d/%m/%Y %H:%M"), "hoy": today, "zonas": zone_stats,
-                "financiacion": cfg["financiacion"]}
+                "financiacion": cfg["financiacion"], "estrategias": cfg.get("estrategias", {})}
         site.publish(ROOT, web_items, meta, site_pw)
     else:
         errors.append("SITE_PASSWORD no configurada: no se ha actualizado el panel web.")
 
     # ---- email -------------------------------------------------------------------
-    subject, html = report.build_email(now.strftime("%d/%m"), top, drops, zone_stats, analyses, errors,
-                                       cfg["web"]["url"], first_run)
+    emails = [("informe.html", cfg["email"]["destinatario"],
+               *report.build_email(now.strftime("%d/%m"), top, drops,
+                                   [s for s in zone_stats if s["id"] not in own_report], analyses, errors,
+                                   cfg["web"]["url"], first_run))]
+    recent = (now.date() - timedelta(days=3)).isoformat()
+    for zid in own_report:
+        z = zones[zid]
+        # Acumulado: lo que sigue publicado. pisos.com se lee entero a diario, así que lo que lleva 3 días
+        # sin aparecer se da por vendido; las alertas de Idealista no se repiten y se mantienen 21 días.
+        current = sorted((l for l in listings if l["zone"] == zid
+                          and (l["source"] != "pisos.com" or l["last_seen"] >= recent)), key=lambda l: l["price"])
+        emails.append((f"informe_{zid}.html", z["informe"]["destinatario"],
+                       *report.build_family_email(now.strftime("%d/%m"), z["informe"]["titulo"], z["nombre"],
+                                                  z["precio_max"], current, today)))
     out = ROOT / "out"
     out.mkdir(exist_ok=True)
-    (out / "informe.html").write_text(html, encoding="utf-8")
     gmail_user, gmail_pw = gmail_credentials()
     sent = False
     send_failed = False
-    if not args.no_email and gmail_user and gmail_pw:
+    for filename, to, subject, html in emails:
+        (out / filename).write_text(html, encoding="utf-8")
+        if args.no_email or not (gmail_user and gmail_pw):
+            log.info("Email no enviado (sin credenciales o --no-email). Informe en out/%s", filename)
+            continue
         try:
-            mailer.send(gmail_user, gmail_pw, cfg["email"]["destinatario"], subject, html)
-            sent = True
-            log.info("Informe enviado a %s", cfg["email"]["destinatario"])
+            mailer.send(gmail_user, gmail_pw, to, subject, html)
+            sent = sent or to == cfg["email"]["destinatario"]
+            log.info("Informe enviado a %s", to)
         except Exception:  # noqa: BLE001
             send_failed = True
-            log.exception("No se pudo enviar el email")
-    else:
-        log.info("Email no enviado (sin credenciales o --no-email). Informe en out/informe.html")
+            log.exception("No se pudo enviar el email a %s", to)
 
     stats = {"activos": len(listings), "top": len(top), "bajadas": len(drops), "errores": errors}
     if sent:

@@ -111,3 +111,87 @@ def build_email(day_label: str, top: list[dict], drops: list[dict], zone_stats: 
   Verifica alquiler, estado, cargas (nota simple), normativa VUT y gastos reales antes de ofertar.</p>
 </div></body></html>"""
     return subject, html
+
+
+# ---- informe de búsqueda de vivienda (zonas con 'informe' propio) ---------------------
+def _home_card(l: dict) -> str:
+    v = l["valuation"]
+    photo = (f'<img src="{escape(l["photo"])}" width="100%" style="display:block;border-radius:8px 8px 0 0;'
+             f'max-height:240px;object-fit:cover">' if l.get("photo") else "")
+    per_m2 = f" · {eur(l['price'] / l['m2'])}/m²" if l.get("m2") else ""
+    details = " · ".join(x for x in (f"{l['m2']} m²" if l.get("m2") else "",
+                                     f"{l['rooms']} hab" if l.get("rooms") is not None else "",
+                                     f"{l['baths']} baños" if l.get("baths") else "", l.get("floor") or "") if x)
+    risks = ", ".join(v["riesgos"])
+    return f"""
+<div style="border:1px solid {LINE};border-radius:8px;margin:0 0 16px;overflow:hidden">
+  {photo}
+  <div style="padding:12px 14px">
+    <div style="font-size:19px;font-weight:bold;color:{INK}">{eur(l['price'])}
+      <span style="font-weight:normal;font-size:13px;color:{MUTED}">{per_m2}</span></div>
+    <div style="font-size:13px;color:{MUTED}">{escape(details)}</div>
+    <div style="font-size:14px;color:{INK};margin-top:4px">{escape(l.get('title') or '')}</div>
+    <div style="font-size:13px;color:{MUTED}">{escape(l.get('location') or '')}</div>
+    {f'<div style="font-size:12px;color:{RED};margin-top:4px">⚠ El anuncio menciona: {escape(risks)}</div>' if risks else ''}
+    <a href="{escape(l['url'])}" style="display:inline-block;margin-top:10px;background:{INK};color:#fff;
+       text-decoration:none;padding:8px 14px;border-radius:6px;font-size:13px">Ver anuncio →</a>
+  </div>
+</div>"""
+
+
+def _home_row(l: dict, today: str) -> str:
+    v = l["valuation"]
+    tags = []
+    if l["first_seen"] == today:
+        tags.append(("NUEVO", "#eef2ff", "#3949ab"))
+    if v["bajadas_pct"]:
+        tags.append((f"−{v['bajadas_pct'][0]}%", "#e6f4ec", GREEN))
+    if v["riesgos"]:
+        tags.append(("⚠ " + v["riesgos"][0], "#fde8e8", RED))
+    tag_html = " ".join(f'<span style="background:{bg};color:{fg};font-size:10px;padding:1px 5px;border-radius:4px">'
+                        f'{escape(t)}</span>' for t, bg, fg in tags)
+    details = " · ".join(x for x in (f"{l['m2']} m²" if l.get("m2") else "",
+                                     f"{l['rooms']} hab" if l.get("rooms") is not None else "") if x)
+    return (f'<tr style="border-top:1px solid {LINE}"><td style="padding:6px 6px 6px 0;vertical-align:top">'
+            f'<a href="{escape(l["url"])}" style="color:{INK}">{escape((l.get("title") or "Vivienda")[:48])}</a> {tag_html}'
+            f'<br><span style="color:{MUTED};font-size:12px">{escape(l.get("location") or "")} · '
+            f'desde {l["first_seen"][8:10]}/{l["first_seen"][5:7]}</span></td>'
+            f'<td style="text-align:right;vertical-align:top;white-space:nowrap"><b>{eur(l["price"])}</b>'
+            f'<br><span style="color:{MUTED};font-size:12px">{escape(details)}</span></td></tr>')
+
+
+def build_family_email(day_label: str, title: str, area: str, max_price: int, listings: list[dict],
+                       today: str) -> tuple[str, str]:
+    """Todas las viviendas vigentes de la zona, con las novedades del día destacadas."""
+    new = [l for l in listings if l["first_seen"] == today]
+    drops = [l for l in listings if l.get("_status") == "drop" and l["valuation"]["bajadas_pct"] and l not in new]
+    first_time = bool(listings) and len(new) == len(listings)
+    subject = (f"🐔 {title} {day_label} — "
+               + (f"{len(new)} novedad{'es' if len(new) != 1 else ''} · " if new and not first_time else "")
+               + f"{len(listings)} viviendas en {area}")
+    if first_time:
+        intro = ("Primer informe: estas son todas las viviendas a la venta ahora mismo. "
+                 "A partir de mañana verás destacadas las que salgan nuevas.")
+        highlights = ""
+    else:
+        intro = (f"Hoy hay <b>{len(new)}</b> vivienda{'s' if len(new) != 1 else ''} nueva{'s' if len(new) != 1 else ''}"
+                 f" y {len(drops)} bajada{'s' if len(drops) != 1 else ''} de precio.")
+        highlights = (f"<h3>✨ Novedades de hoy</h3>{''.join(_home_card(l) for l in new)}" if new else
+                      f'<p style="color:{MUTED}">Hoy no ha salido ninguna vivienda nueva.</p>')
+        if drops:
+            highlights += f"<h3>📉 Han bajado de precio</h3>{''.join(_home_card(l) for l in drops)}"
+    rows = "".join(_home_row(l, today) for l in listings)
+    all_html = (f'<table style="width:100%;font-size:13px;border-collapse:collapse">{rows}</table>' if rows else
+                f'<p style="color:{MUTED}">Ahora mismo no hay viviendas que cumplan el criterio.</p>')
+    html = f"""<!doctype html><html><body style="margin:0;background:#f5f7fa">
+<div style="max-width:620px;margin:0 auto;background:#fff;padding:18px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:{INK}">
+  <h2 style="margin:0">🐔 {escape(title)} · {day_label}</h2>
+  <p style="color:{MUTED};font-size:14px;margin:4px 0 0">Viviendas en venta en {escape(area)} hasta {eur(max_price)}, en cualquier estado.</p>
+  <p style="font-size:14px">{intro}</p>
+  {highlights}
+  <h3>📋 Todas las ofertas disponibles ({len(listings)})</h3>
+  {all_html}
+  <p style="font-size:11px;color:{MUTED};margin-top:24px">Informe automático diario con los anuncios de pisos.com e Idealista.
+  Ordenado de más barato a más caro; la fecha indica desde cuándo está publicado.</p>
+</div></body></html>"""
+    return subject, html

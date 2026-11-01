@@ -80,11 +80,36 @@ pisos_com:
 
 # ----------------------------------------------------------------------------
 #  ZONAS
-#  estrategia: larga | vacacional
+#  estrategia: larga | vacacional | jubilacion (ver nombres en 'estrategias')
 #  slugs: rutas de pisos.com (https://www.pisos.com/venta/<slug>/)
 #  idealista_match: palabras para asignar a esta zona los anuncios de las alertas de Idealista
 # ----------------------------------------------------------------------------
+estrategias:
+  larga: Larga duración
+  vacacional: Vacacional
+  jubilacion: Jubilación gallinos
+
 zonas:
+
+  # Va la primera para que las alertas de Idealista de Boadilla (que mencionan "Madrid") se asignen aquí
+  - id: boadilla
+    nombre: Boadilla del Monte
+    provincia: Madrid
+    estrategia: jubilacion
+    itp: 0.06
+    precio_max: 300000
+    m2_min: 0                # cualquier vivienda, sea cual sea su estado
+    habitaciones_min: 0
+    excluir_bajos: false
+    exigir_ubicacion: [boadilla]   # pisos.com rellena con anuncios de Pozuelo o Villaviciosa
+    paginas_venta: 10        # mercado pequeño: se lee entero cada día
+    paginas_alquiler: 0
+    alquiler_m2_defecto: 15.0
+    slugs: [pisos-boadilla_del_monte]
+    idealista_match: [boadilla]
+    idealista_api: {center: "40.4050,-3.8780", distance: 4000}
+    # Email diario propio con todas las ofertas vigentes (no entra en el informe de inversión)
+    informe: {destinatario: nati.seijas@gmail.com, titulo: "Jubilación gallinos"}
 
   - id: madrid
     nombre: Madrid

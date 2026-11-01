@@ -21,6 +21,8 @@ Zonas configuradas por defecto (en [config.yaml](config.yaml)):
 
 Presupuesto máximo: 250.000 €. Todo es editable en `config.yaml`.
 
+Además hay una búsqueda de vivienda propia, la estrategia **Jubilación gallinos**: todas las viviendas de **Boadilla del Monte** hasta 300.000 €, en cualquier estado. No entra en el informe de inversión. Cada día a las 7:00 se envía un email aparte a nati.seijas@gmail.com con todas las ofertas vigentes y las novedades destacadas. En el panel se ve eligiendo esa estrategia en el filtro. Cualquier zona puede tener su propio email añadiendo `informe: {destinatario, titulo}` en `config.yaml`.
+
 ---
 
 ## Puesta en marcha (unos 20 minutos)
