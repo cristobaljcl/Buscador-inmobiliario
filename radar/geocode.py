@@ -1,6 +1,6 @@
 """Coordenadas aproximadas de los anuncios para el mapa del panel (Nominatim / OpenStreetMap).
 
-Los portales no publican coordenadas en los listados, así que se geocodifica la calle del título
+Fotocasa da coordenadas y se usan tal cual. pisos.com no las publica, así que se geocodifica la calle del título
 ("Piso en calle Toledo, 40") o, si no la hay, el barrio y el municipio de la ubicación. Cada consulta
 se guarda en la tabla geocache (también las fallidas) y solo se hace una vez.
 """
@@ -80,6 +80,8 @@ class Geocoder:
 
     def locate(self, l: dict, zone: dict, precise: bool) -> tuple[float, float, str] | None:
         """[lat, lon, precisión] con precisión 'calle', 'barrio' o 'municipio'. precise=False no consulta calles nuevas."""
+        if l.get("lat") is not None and l.get("lon") is not None:  # coordenadas del propio portal (Fotocasa)
+            return l["lat"], l["lon"], l.get("geo_prec") or "barrio"
         barrio, city = parse_location(l.get("location"))
         if not city:
             return None

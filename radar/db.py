@@ -63,6 +63,11 @@ class DB:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        # Migración: coordenadas que da el propio portal (Fotocasa); las bases antiguas no tienen estas columnas
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(listings)")}
+        for col, typ in (("lat", "REAL"), ("lon", "REAL"), ("geo_prec", "TEXT")):
+            if col not in cols:
+                self.conn.execute(f"ALTER TABLE listings ADD COLUMN {col} {typ}")
 
     def close(self):
         self.conn.commit()
@@ -77,11 +82,11 @@ class DB:
             status = "new"
             self.conn.execute(
                 """INSERT INTO listings (id, source, zone, url, title, location, price, m2, rooms, baths,
-                   floor, description, photo, first_seen, last_seen)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   floor, description, photo, first_seen, last_seen, lat, lon, geo_prec)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (l["id"], l["source"], l["zone"], l["url"], l.get("title"), l.get("location"), l["price"],
                  l.get("m2"), l.get("rooms"), l.get("baths"), l.get("floor"), l.get("description"),
-                 l.get("photo"), today, today))
+                 l.get("photo"), today, today, l.get("lat"), l.get("lon"), l.get("geo_prec")))
         else:
             # Solo es bajada si hay un precio mayor en un día anterior (el histórico guarda un precio por día)
             if row["price"] and l["price"] < row["price"] and self.conn.execute(
@@ -94,11 +99,12 @@ class DB:
                    location=COALESCE(?, location), m2=COALESCE(?, m2), rooms=COALESCE(?, rooms),
                    baths=COALESCE(?, baths), floor=COALESCE(?, floor), photo=COALESCE(?, photo),
                    description=CASE WHEN length(COALESCE(?, '')) > length(COALESCE(description, ''))
-                                    THEN ? ELSE description END
+                                    THEN ? ELSE description END,
+                   lat=COALESCE(?, lat), lon=COALESCE(?, lon), geo_prec=COALESCE(?, geo_prec)
                    WHERE id=?""",
                 (l["price"], today, l.get("title"), l.get("location"), l.get("m2"), l.get("rooms"),
                  l.get("baths"), l.get("floor"), l.get("photo"), l.get("description"), l.get("description"),
-                 l["id"]))
+                 l.get("lat"), l.get("lon"), l.get("geo_prec"), l["id"]))
         self.conn.execute("INSERT OR REPLACE INTO price_history VALUES (?,?,?)", (l["id"], today, l["price"]))
         return status
 

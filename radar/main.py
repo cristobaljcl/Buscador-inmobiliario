@@ -19,6 +19,7 @@ import yaml
 from radar import ai, mailer, report, site
 from radar.db import DB
 from radar.geocode import geocode_listings
+from radar.sources.fotocasa import Fotocasa
 from radar.sources.idealista_api import IdealistaAPI
 from radar.sources.idealista_email import fetch_alerts
 from radar.sources.pisos_com import PisosCom
@@ -94,6 +95,23 @@ def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
                 if passes_filters(s, z):
                     store({**s, "id": f"pisos:{s['code']}", "source": "pisos.com", "zone": z["id"]})
     errors.extend(pisos.errors)
+
+    # ---- Fotocasa ----------------------------------------------------------
+    fc = cfg.get("fotocasa", {})
+    if fc.get("activada", True):
+        foto = Fotocasa(tuple(fc.get("pausa_segundos", (3, 6))))
+        for z in cfg["zonas"]:
+            for slug in z.get("fotocasa", []):
+                for r in foto.rentals(slug, z.get("paginas_alquiler", fc.get("paginas_alquiler", 1))):
+                    if r.get("m2") and r["price"] < 15000:
+                        db.add_rent_sample({"id": f"fotocasa:{r['code']}", "zone": z["id"], "location": r["location"],
+                                            "price": r["price"], "m2": r["m2"]}, today)
+                sales = foto.sales(slug, z["precio_max"], fc.get("paginas_venta", 2))
+                log.info("Fotocasa %s: %d anuncios de venta", slug, len(sales))
+                for s in sales:
+                    if passes_filters(s, z):
+                        store({**s, "id": f"fotocasa:{s['code']}", "source": "fotocasa", "zone": z["id"]})
+        errors.extend(foto.errors)
 
     # ---- Idealista: alertas por email ---------------------------------------
     ide = cfg["idealista"]
@@ -244,10 +262,10 @@ def run(args):
     recent = (now.date() - timedelta(days=3)).isoformat()
     for zid in own_report:
         z = zones[zid]
-        # Acumulado: lo que sigue publicado. pisos.com se lee entero a diario, así que lo que lleva 3 días
-        # sin aparecer se da por vendido; las alertas de Idealista no se repiten y se mantienen 21 días.
+        # Acumulado: lo que sigue publicado. pisos.com y Fotocasa se leen enteros a diario, así que lo que lleva
+        # 3 días sin aparecer se da por vendido; las alertas de Idealista no se repiten y se mantienen 21 días.
         current = sorted((l for l in listings if l["zone"] == zid
-                          and (l["source"] != "pisos.com" or l["last_seen"] >= recent)), key=lambda l: l["price"])
+                          and (l["source"] == "idealista" or l["last_seen"] >= recent)), key=lambda l: l["price"])
         emails.append((f"informe_{zid}.html", z["informe"]["destinatario"],
                        *report.build_family_email(now.strftime("%d/%m"), z["informe"]["titulo"], z["nombre"],
                                                   z["precio_max"], current, today)))

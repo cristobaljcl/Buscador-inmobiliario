@@ -78,10 +78,17 @@ pisos_com:
   paginas_alquiler: 2       # para calcular €/m² de alquiler real por barrio
   pausa_segundos: [2.5, 5]  # pausa aleatoria entre peticiones (respeto al portal)
 
+fotocasa:
+  activada: true
+  paginas_venta: 2          # 30 anuncios por página, ordenados por fecha de publicación
+  paginas_alquiler: 1       # completa las muestras de alquiler de pisos.com
+  pausa_segundos: [3, 6]
+
 # ----------------------------------------------------------------------------
 #  ZONAS
 #  estrategia: larga | vacacional | jubilacion (ver nombres en 'estrategias')
 #  slugs: rutas de pisos.com (https://www.pisos.com/venta/<slug>/)
+#  fotocasa: rutas de Fotocasa (https://www.fotocasa.es/es/comprar/viviendas/<slug>/todas-las-zonas/l)
 #  idealista_match: palabras para asignar a esta zona los anuncios de las alertas de Idealista
 # ----------------------------------------------------------------------------
 estrategias:
@@ -106,6 +113,7 @@ zonas:
     paginas_alquiler: 0
     alquiler_m2_defecto: 15.0
     slugs: [pisos-boadilla_del_monte]
+    fotocasa: [boadilla-del-monte]
     idealista_match: [boadilla]
     idealista_api: {center: "40.4050,-3.8780", distance: 4000}
     # Email diario propio con todas las ofertas vigentes (no entra en el informe de inversión)
@@ -126,6 +134,7 @@ zonas:
     alquiler_m2_defecto: 20.0
     slugs: [pisos-madrid_capital_zona_urbana, pisos-mostoles, pisos-alcorcon, pisos-getafe,
             pisos-leganes, pisos-fuenlabrada]
+    fotocasa: [madrid-capital, mostoles, alcorcon, getafe, leganes, fuenlabrada]
     idealista_match: [madrid, móstoles, mostoles, alcorcón, alcorcon, getafe, leganés, leganes, fuenlabrada]
     idealista_api: {center: "40.4168,-3.7038", distance: 15000}
     aviso_normativo: "Zona tensionada (Ley de Vivienda): posibles topes al alquiler en nuevos contratos. Verificar índice de referencia."
@@ -144,6 +153,7 @@ zonas:
     ocupacion: 0.50
     slugs: [pisos-cartagena, pisos-san_javier, pisos-los_alcazares, pisos-san_pedro_del_pinatar,
             pisos-mazarron, pisos-aguilas]
+    fotocasa: [cartagena, san-javier, los-alcazares, san-pedro-del-pinatar, mazarron, aguilas]
     idealista_match: [cartagena, "la manga", "san javier", "los alcázares", "los alcazares", "san pedro del pinatar", mazarrón, mazarron, águilas, aguilas, murcia]
     idealista_api: {center: "37.6719,-0.8270", distance: 35000}
     aviso_normativo: "Desde 2025 una nueva VUT requiere aprobación de 3/5 de la comunidad (LPH) y registro único estatal. Verificar normativa municipal."
@@ -161,6 +171,7 @@ zonas:
     adr_base: 105
     ocupacion: 0.60
     slugs: [pisos-torrevieja, pisos-santa_pola, pisos-benidorm, pisos-alicante_alacant, pisos-denia]
+    fotocasa: [torrevieja, santa-pola, benidorm, alicante-alacant, denia]
     idealista_match: [torrevieja, "santa pola", benidorm, alicante, alacant, dénia, denia]
     idealista_api: {center: "38.3452,-0.4810", distance: 40000}
     aviso_normativo: "C. Valenciana (DL 9/2024) endurece licencias VUT; Alicante ciudad mantiene moratoria de nuevas licencias. Verificar municipio y comunidad (3/5 LPH)."
@@ -178,6 +189,7 @@ zonas:
     adr_base: 110
     ocupacion: 0.42
     slugs: [pisos-sanxenxo, pisos-vigo, pisos-pontevedra_capital, pisos-o_grove, pisos-baiona]
+    fotocasa: [sanxenxo, vigo, pontevedra-capital, o-grove, baiona]
     idealista_match: [sanxenxo, vigo, pontevedra, "o grove", baiona, cangas]
     idealista_api: {center: "42.3500,-8.7500", distance: 35000}
     aviso_normativo: "Galicia exige inscripción en el REAT. Fuerte estacionalidad (julio-agosto). Verificar ordenanza municipal (Vigo regula VUT en edificios residenciales)."
@@ -195,6 +207,7 @@ zonas:
     adr_base: 95
     ocupacion: 0.55
     slugs: [pisos-a_coruna_capital, pisos-santiago_de_compostela, pisos-ferrol]
+    fotocasa: [a-coruna-capital, santiago-de-compostela, ferrol]
     idealista_match: ["a coruña", "a coruna", coruña, santiago, ferrol]
     idealista_api: {center: "43.3623,-8.4115", distance: 30000}
     aviso_normativo: "A Coruña y Santiago han restringido mucho las VUT en pisos (en general solo bajos/1ª planta con acceso propio). Comprueba si el anuncio encaja; si no, valora larga duración."

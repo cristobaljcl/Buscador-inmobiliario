@@ -2,7 +2,7 @@
 
 Cada mañana a las **7:00 (hora de Madrid)**, el radar:
 
-1. Lee los anuncios nuevos de **pisos.com** (venta y alquiler) y de **Idealista** (alertas por email y/o API oficial).
+1. Lee los anuncios nuevos de **pisos.com** y **Fotocasa** (venta y alquiler) y de **Idealista** (alertas por email y/o API oficial). Si un mismo piso aparece en varios portales, se agrupa.
 2. Calcula el alquiler real de cada barrio a partir de los anuncios de alquiler.
 3. Valora cada piso con la metodología de *(Invierte en) Tu Primer Piso*: regla del 150, rentabilidad bruta y neta, cash flow con hipoteca, ROCE, tipo de piso según el libro y precio de oferta para alcanzar múltiplo 150.
 4. Puntúa cada piso de 0 a 100 y pide a Claude un análisis del TOP: veredicto, riesgos y preguntas para el vendedor.
@@ -89,7 +89,8 @@ python -m radar.main --force --no-email    # genera out/informe.html y docs/ (si
 ```
 
 ## Limitaciones
-- pisos.com se lee con pocas peticiones y pausas. Si el portal cambia su HTML, el email mostrará una incidencia y habrá que ajustar `radar/sources/pisos_com.py`.
+- pisos.com y Fotocasa se leen con pocas peticiones y pausas. Si un portal cambia su página, el email mostrará una incidencia y habrá que ajustar `radar/sources/pisos_com.py` o `radar/sources/fotocasa.py`. Fotocasa se puede desactivar con `fotocasa.activada: false`.
+- Fotocasa marca los pisos ocupados, en subasta, en nuda propiedad o alquilados. El radar los trata como riesgo (o como "alquilado") igual que si lo dijera la descripción.
 - El formato de los emails de Idealista puede cambiar. El lector es heurístico: busca enlaces `/inmueble/<id>`.
 - Favoritos, estados y notas del panel se guardan en cada dispositivo, no se sincronizan entre móvil y PC.
 - El mapa usa ubicaciones **aproximadas**: los portales no publican coordenadas, así que se geocodifica con OpenStreetMap la calle del título o, si no la hay, el barrio o el municipio. Cada dirección se consulta una sola vez y se guarda en la base de datos. Como máximo se hacen `web.mapa_consultas_max` consultas por ejecución; si hay más, se completan en los días siguientes.
