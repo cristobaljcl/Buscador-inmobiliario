@@ -1,7 +1,7 @@
 """Orquestador diario del Radar Inmobiliario.
 
 Uso:
-    python -m radar.main                 # ejecución programada: busca desde las 5:15 de Madrid y envía a las 7:00, 1 vez/día
+    python -m radar.main                 # ejecución programada: busca desde la 1:45 de Madrid y envía a las 7:00, 1 vez/día
     python -m radar.main --force         # ejecutar ya, ignorando hora y envío previo
     python -m radar.main --force --no-email   # sin enviar correo (guarda out/informe.html)
 """
@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TZ = ZoneInfo("Europe/Madrid")
 log = logging.getLogger("radar")
 PRIORITY = {"new": 2, "drop": 1, "seen": 0}
-START = (5, 15)    # hora de Madrid a partir de la cual actúa la ejecución programada
+START = (1, 45)    # hora de Madrid a partir de la cual actúa la ejecución programada
 SEND_AT = (7, 0)   # hora de Madrid a la que salen los emails
 
 
@@ -180,7 +180,7 @@ def run(args):
     today = now.date().isoformat()
     db = DB(ROOT / "data" / "radar.db")
 
-    # Se arranca a las 5:30 para tener la búsqueda hecha y el email se retiene hasta la hora de envío
+    # Se arranca a las 2:07 para tener la búsqueda hecha y el email se retiene hasta la hora de envío
     if not args.force and ((now.hour, now.minute) < START or db.already_sent(today)):
         log.info("Fuera de horario o informe ya enviado hoy (%s %02d:%02d). Nada que hacer.", today, now.hour, now.minute)
         db.close()

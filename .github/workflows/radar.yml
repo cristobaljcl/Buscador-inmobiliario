@@ -2,11 +2,11 @@ name: Radar inmobiliario diario
 
 on:
   schedule:
-    # GitHub usa UTC y suele arrancar con retraso. Se busca a las 5:30 de Madrid (verano 03:30 UTC,
-    # invierno 04:30 UTC) y el script retiene los emails hasta las 7:00. El disparo de las 06:00 UTC
-    # es de reserva por si los anteriores fallan; el script solo envía una vez al día.
-    - cron: "30 3 * * *"
-    - cron: "30 4 * * *"
+    # GitHub usa UTC y suele arrancar con horas de retraso. Se busca a las 2:07 de Madrid (verano 00:07 UTC,
+    # invierno 01:07 UTC; se evita la hora en punto, la más saturada) y el script retiene los emails hasta
+    # las 7:00. El disparo de las 06:00 UTC es de reserva; el script solo envía una vez al día.
+    - cron: "7 0 * * *"
+    - cron: "7 1 * * *"
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
@@ -25,7 +25,7 @@ concurrency:
 jobs:
   radar:
     runs-on: ubuntu-latest
-    timeout-minutes: 150   # incluye la espera hasta las 7:00
+    timeout-minutes: 330   # incluye la espera hasta las 7:00 (el máximo de GitHub son 6 h)
     steps:
       - uses: actions/checkout@v4
 
@@ -58,4 +58,5 @@ jobs:
           git config user.email "radar-bot@users.noreply.github.com"
           for p in data docs; do [ -e "$p" ] && git add "$p"; done
           git diff --cached --quiet || git commit -m "Radar $(date -u +%F)"
+          git pull --rebase   # la ejecución espera horas: puede haber commits nuevos en el repositorio
           git push
