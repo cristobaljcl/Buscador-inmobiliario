@@ -6,7 +6,7 @@ Cada mañana a las **7:00 (hora de Madrid)**, el radar:
 2. Calcula el alquiler real de cada barrio a partir de los anuncios de alquiler.
 3. Valora cada piso con la metodología de *(Invierte en) Tu Primer Piso*: regla del 150, rentabilidad bruta y neta, cash flow con hipoteca, ROCE, tipo de piso según el libro y precio de oferta para alcanzar múltiplo 150.
 4. Puntúa cada piso de 0 a 100 y pide a Claude un análisis del TOP: veredicto, riesgos y preguntas para el vendedor.
-5. Te envía el informe a **cristobalcl85@gmail.com**.
+5. Te envía el informe a **cristobalcl85@gmail.com**, con el TOP 10 de anuncios activos de cada provincia ordenado por puntuación.
 6. Publica un **panel web cifrado** (móvil y PC) con filtros, mapa de precios, calculadora editable, favoritos, estados y notas.
 
 Zonas configuradas por defecto (en [config.yaml](config.yaml)):

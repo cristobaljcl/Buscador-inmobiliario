@@ -69,7 +69,8 @@ def _card(l: dict, ai: dict | None) -> str:
 
 
 def build_email(day_label: str, top: list[dict], drops: list[dict], zone_stats: list[dict], ai: dict,
-                errors: list[str], site_url: str, first_run: bool) -> tuple[str, str]:
+                errors: list[str], province_tops: dict[str, list[dict]], site_url: str,
+                first_run: bool) -> tuple[str, str]:
     n_new = sum(z["nuevos"] for z in zone_stats)
     subject = f"🏠 Radar {day_label} — {len(top)} oportunidades TOP, {n_new} nuevas, {len(drops)} bajadas"
     intro = ("Primera ejecución: se ha creado la base de datos. El TOP incluye los mejores pisos actualmente "
@@ -89,6 +90,20 @@ def build_email(day_label: str, top: list[dict], drops: list[dict], zone_stats: 
         f'<td style="text-align:center">{z["mejor_multiplo"] or "—"}</td>'
         f'<td style="text-align:right">{z["alquiler_m2"] or "—"} / {z["venta_m2"] or "—"}</td></tr>'
         for z in zone_stats)
+    province_sections = "".join(
+        f'<h4 style="margin:12px 0 4px">{escape(province)}</h4>'
+        + (f'<table style="width:100%;font-size:13px;border-collapse:collapse">'
+           + "".join(
+               f'<tr style="border-top:1px solid {LINE}"><td style="padding:5px 0">'
+               f'<a href="{escape(l["url"])}">{escape(l.get("title") or "Vivienda")}</a>'
+               f'<br><span style="color:{MUTED};font-size:12px">{escape(l.get("location") or l["zone_name"])}</span>'
+               f'</td><td style="text-align:right;white-space:nowrap">{eur(l["price"])}'
+               f'<br><b style="color:{_score_color(l["valuation"]["puntuacion"])}">'
+               f'Nota {l["valuation"]["puntuacion"]}/100</b></td></tr>'
+               for l in listings)
+           + "</table>" if listings else
+           f'<p style="font-size:13px;color:{MUTED}">No hay anuncios activos.</p>')
+        for province, listings in sorted(province_tops.items()))
     err_html = ("<h3 style='color:%s'>Incidencias</h3><ul style='font-size:12px;color:%s'>%s</ul>"
                 % (RED, MUTED, "".join(f"<li>{escape(e)}</li>" for e in errors[:15]))) if errors else ""
     panel = (f'<p style="text-align:center"><a href="{escape(site_url)}" style="background:#3949ab;color:#fff;'
@@ -100,6 +115,9 @@ def build_email(day_label: str, top: list[dict], drops: list[dict], zone_stats: 
   {panel}
   <h3>🏆 TOP del día</h3>
   {cards}
+  <h3>🏅 TOP 10 por provincia</h3>
+  <p style="font-size:13px;color:{MUTED}">Anuncios activos ordenados por nota de valoración.</p>
+  {province_sections}
   {f'<h3>📉 Bajadas de precio</h3><table style="width:100%;font-size:13px">{drop_rows}</table>' if drop_rows else ''}
   <h3>📊 Resumen por zona</h3>
   <table style="width:100%;font-size:13px;border-collapse:collapse">

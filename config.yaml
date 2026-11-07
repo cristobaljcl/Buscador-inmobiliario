@@ -7,6 +7,7 @@
 
 email:
   destinatario: cristobalcl85@gmail.com
+  copia: [josefinalozano@hotmail.es]   # en copia (CC) del informe de inversión
   top_n: 8                 # nº máximo de oportunidades TOP en el correo
   puntuacion_minima: 55    # solo entran en el TOP los pisos con puntuación >= esto
 

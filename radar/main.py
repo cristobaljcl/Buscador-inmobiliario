@@ -216,6 +216,14 @@ def run(args):
     top = [l for l in fresh if l["valuation"]["puntuacion"] >= cfg["email"]["puntuacion_minima"]][:cfg["email"]["top_n"]]
     top_ids = {l["id"] for l in top}
     drops = [l for l in investing if l["_status"] == "drop" and l["valuation"]["bajadas_pct"] and l["id"] not in top_ids and l["valuation"]["puntuacion"] >= 35]
+    province_tops: dict[str, list[dict]] = {}
+    for zid, z in zones.items():
+        if zid not in own_report:
+            province_tops.setdefault(z.get("provincia") or z["nombre"], [])
+    for l in investing:
+        province = zones[l["zone"]].get("provincia") or zones[l["zone"]]["nombre"]
+        province_tops[province].append(l)
+    province_tops = {province: listings[:10] for province, listings in province_tops.items()}
 
     # ---- análisis IA -----------------------------------------------------------
     analyses = {}
@@ -265,10 +273,10 @@ def run(args):
         log.info("Búsqueda terminada; se espera %d min para enviar a las %02d:%02d", wait // 60, *SEND_AT)
         time.sleep(wait)
         now = datetime.now(TZ)
-    emails = [("informe.html", cfg["email"]["destinatario"],
+    emails = [("informe.html", cfg["email"]["destinatario"], cfg["email"].get("copia", []),
                *report.build_email(now.strftime("%d/%m"), top, drops,
                                    [s for s in zone_stats if s["id"] not in own_report], analyses, errors,
-                                   cfg["web"]["url"], first_run))]
+                                   province_tops, cfg["web"]["url"], first_run))]
     recent = (now.date() - timedelta(days=3)).isoformat()
     for zid in own_report:
         z = zones[zid]
@@ -276,7 +284,7 @@ def run(args):
         # 3 días sin aparecer se da por vendido; las alertas de Idealista no se repiten y se mantienen 21 días.
         current = sorted((l for l in listings if l["zone"] == zid
                           and (l["source"] == "idealista" or l["last_seen"] >= recent)), key=lambda l: l["price"])
-        emails.append((f"informe_{zid}.html", z["informe"]["destinatario"],
+        emails.append((f"informe_{zid}.html", z["informe"]["destinatario"], z["informe"].get("copia", []),
                        *report.build_family_email(now.strftime("%d/%m"), z["informe"]["titulo"], z["nombre"],
                                                   z["precio_max"], current, today)))
     out = ROOT / "out"
@@ -284,15 +292,15 @@ def run(args):
     gmail_user, gmail_pw = gmail_credentials()
     sent = False
     send_failed = False
-    for filename, to, subject, html in emails:
+    for filename, to, cc, subject, html in emails:
         (out / filename).write_text(html, encoding="utf-8")
         if args.no_email or not (gmail_user and gmail_pw):
             log.info("Email no enviado (sin credenciales o --no-email). Informe en out/%s", filename)
             continue
         try:
-            mailer.send(gmail_user, gmail_pw, to, subject, html)
+            mailer.send(gmail_user, gmail_pw, to, subject, html, cc)
             sent = sent or to == cfg["email"]["destinatario"]
-            log.info("Informe enviado a %s", to)
+            log.info("Informe enviado a %s%s", to, f" (copia: {', '.join(cc)})" if cc else "")
         except Exception:  # noqa: BLE001
             send_failed = True
             log.exception("No se pudo enviar el email a %s", to)
