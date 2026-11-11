@@ -23,6 +23,8 @@ Presupuesto máximo: 250.000 €. Todo es editable en `config.yaml`.
 
 Además hay una búsqueda de vivienda propia, la estrategia **Jubilación gallinos**: todas las viviendas de **Boadilla del Monte** hasta 300.000 €, en cualquier estado. No entra en el informe de inversión. Cada día a las 7:00 se envía un email aparte a nati.seijas@gmail.com con todas las ofertas vigentes y las novedades destacadas. En el panel se ve eligiendo esa estrategia en el filtro. Cualquier zona puede tener su propio email añadiendo `informe: {destinatario, titulo}` en `config.yaml`.
 
+La estrategia **Ofertas aceptables Madrid** recoge todo Madrid capital hasta 300.000 € con 2 habitaciones o más. Excluye Vallecas, Pan Bendito y Abrantes. Cada día se leen enteros pisos.com y Fotocasa. Hay miles de anuncios, así que el email diario (a cristobalcl85@gmail.com con copia a nati.seijas@gmail.com y josefinalozano@hotmail.es) solo trae las novedades y las bajadas de precio. El listado completo está en el panel, eligiendo esa estrategia en el filtro.
+
 ---
 
 ## Puesta en marcha (unos 20 minutos)

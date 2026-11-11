@@ -179,37 +179,51 @@ def _home_row(l: dict, today: str) -> str:
 
 
 def build_family_email(day_label: str, title: str, area: str, max_price: int, listings: list[dict],
-                       today: str) -> tuple[str, str]:
-    """Todas las viviendas vigentes de la zona, con las novedades del día destacadas."""
+                       today: str, subtitle: str | None = None, list_all: bool = True,
+                       icon: str = "🐔") -> tuple[str, str]:
+    """Viviendas vigentes de la zona con las novedades del día destacadas. Con list_all=False (zonas con miles
+    de anuncios) solo se envían novedades y bajadas, para que Gmail no recorte el mensaje."""
+    max_cards = 30  # el resto de novedades va en filas compactas
     new = [l for l in listings if l["first_seen"] == today]
     drops = [l for l in listings if l.get("_status") == "drop" and l["valuation"]["bajadas_pct"] and l not in new]
     first_time = bool(listings) and len(new) == len(listings)
-    subject = (f"🐔 {title} {day_label} — "
+    subject = (f"{icon} {title} {day_label} — "
                + (f"{len(new)} novedad{'es' if len(new) != 1 else ''} · " if new and not first_time else "")
                + f"{len(listings)} viviendas en {area}")
+    table = lambda ls: f'<table style="width:100%;font-size:13px;border-collapse:collapse">{"".join(_home_row(l, today) for l in ls)}</table>'
+    cards = lambda ls: "".join(_home_card(l) for l in ls[:max_cards]) + (table(ls[max_cards:]) if ls[max_cards:] else "")
     if first_time:
-        intro = ("Primer informe: estas son todas las viviendas a la venta ahora mismo. "
-                 "A partir de mañana verás destacadas las que salgan nuevas.")
-        highlights = ""
+        if list_all:
+            intro = ("Primer informe: estas son todas las viviendas a la venta ahora mismo. "
+                     "A partir de mañana verás destacadas las que salgan nuevas.")
+            highlights = ""
+        else:
+            intro = (f"Primer informe: ahora mismo hay <b>{len(listings)}</b> viviendas que cumplen el criterio. "
+                     "A partir de mañana recibirás aquí las que salgan nuevas y las bajadas de precio.")
+            highlights = f"<h3>💶 Las 20 más baratas</h3>{table(listings[:20])}"
     else:
         intro = (f"Hoy hay <b>{len(new)}</b> vivienda{'s' if len(new) != 1 else ''} nueva{'s' if len(new) != 1 else ''}"
                  f" y {len(drops)} bajada{'s' if len(drops) != 1 else ''} de precio.")
-        highlights = (f"<h3>✨ Novedades de hoy</h3>{''.join(_home_card(l) for l in new)}" if new else
+        highlights = (f"<h3>✨ Novedades de hoy</h3>{cards(new)}" if new else
                       f'<p style="color:{MUTED}">Hoy no ha salido ninguna vivienda nueva.</p>')
         if drops:
-            highlights += f"<h3>📉 Han bajado de precio</h3>{''.join(_home_card(l) for l in drops)}"
-    rows = "".join(_home_row(l, today) for l in listings)
-    all_html = (f'<table style="width:100%;font-size:13px;border-collapse:collapse">{rows}</table>' if rows else
-                f'<p style="color:{MUTED}">Ahora mismo no hay viviendas que cumplan el criterio.</p>')
+            highlights += f"<h3>📉 Han bajado de precio</h3>{cards(drops)}"
+    if list_all:
+        all_html = (f"<h3>📋 Todas las ofertas disponibles ({len(listings)})</h3>"
+                    + (table(listings) if listings else
+                       f'<p style="color:{MUTED}">Ahora mismo no hay viviendas que cumplan el criterio.</p>'))
+    else:
+        all_html = (f'<p style="font-size:13px;color:{MUTED}">En total hay {len(listings)} viviendas disponibles; '
+                    f"todas se pueden consultar en el panel del radar.</p>")
+    subtitle = subtitle or f"Viviendas en venta en {area} hasta {eur(max_price)}, en cualquier estado."
     html = f"""<!doctype html><html><body style="margin:0;background:#f5f7fa">
 <div style="max-width:620px;margin:0 auto;background:#fff;padding:18px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:{INK}">
-  <h2 style="margin:0">🐔 {escape(title)} · {day_label}</h2>
-  <p style="color:{MUTED};font-size:14px;margin:4px 0 0">Viviendas en venta en {escape(area)} hasta {eur(max_price)}, en cualquier estado.</p>
+  <h2 style="margin:0">{icon} {escape(title)} · {day_label}</h2>
+  <p style="color:{MUTED};font-size:14px;margin:4px 0 0">{escape(subtitle)}</p>
   <p style="font-size:14px">{intro}</p>
   {highlights}
-  <h3>📋 Todas las ofertas disponibles ({len(listings)})</h3>
   {all_html}
-  <p style="font-size:11px;color:{MUTED};margin-top:24px">Informe automático diario con los anuncios de pisos.com e Idealista.
+  <p style="font-size:11px;color:{MUTED};margin-top:24px">Informe automático diario con los anuncios de pisos.com, Fotocasa e Idealista.
   Ordenado de más barato a más caro; la fecha indica desde cuándo está publicado.</p>
 </div></body></html>"""
     return subject, html

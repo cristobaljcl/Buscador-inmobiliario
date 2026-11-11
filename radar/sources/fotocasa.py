@@ -109,10 +109,11 @@ class Fotocasa:
                 break
         return results
 
-    def sales(self, slug: str, max_price: int, pages: int) -> list[dict]:
+    def sales(self, slug: str, max_price: int, pages: int, min_rooms: int = 0) -> list[dict]:
         # Orden por fecha de publicación para capturar las novedades del día
+        rooms = f"&minRooms={min_rooms}" if min_rooms >= 2 else ""
         return self._crawl(f"/es/comprar/viviendas/{slug}/todas-las-zonas/l",
-                           f"?maxPrice={max_price}&sortType=publicationDate", pages)
+                           f"?maxPrice={max_price}{rooms}&sortType=publicationDate", pages)
 
     def rentals(self, slug: str, pages: int) -> list[dict]:
         if pages <= 0:

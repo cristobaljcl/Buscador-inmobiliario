@@ -129,6 +129,7 @@
     <div class="zones" id="zones"></div>
     <p class="muted" id="count"></p>
     <div class="grid" id="grid"></div>
+    <p style="text-align:center"><button class="btn" id="more" type="button" hidden>Mostrar más</button></p>
   </main>
 </div>
 
@@ -137,6 +138,8 @@
 <script>
 const STATES = ["Nuevo", "Visto", "Llamado", "Visitado", "Oferta", "Descartado"];
 let DATA = null, VIEW = [];
+const PAGE = 300;          // tarjetas por tanda: pintar miles de golpe bloquea el móvil
+let SHOWN = PAGE;
 const $ = (s) => document.querySelector(s);
 const eur = (x) => x == null ? "—" : Math.round(x).toLocaleString("es-ES") + " €";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -145,6 +148,8 @@ const color = (s) => s >= 70 ? "var(--good)" : s >= 50 ? "var(--mid)" : "var(--b
 const STRATS = () => DATA.meta.estrategias || { larga: "Larga duración", vacacional: "Vacacional" };
 // En la búsqueda de vivienda propia la puntuación de inversión no aplica: se muestran todas
 const isHome = (l) => l.v.estrategia === "jubilacion";
+// Estrategias de "todo lo disponible" (jubilación, ofertas Madrid): el filtro de puntuación no las oculta
+const unscored = (l) => !["larga", "vacacional"].includes(l.v.estrategia);
 
 // ---- estado local por dispositivo (favoritos, estados, notas) -------------
 function store() { try { return JSON.parse(localStorage.getItem("radar-user") || "{}"); } catch { return {}; } }
@@ -190,6 +195,7 @@ function init() {
   for (const id of ["#q", "#fZone", "#fStrat", "#fState", "#sort", "#fScore", "#fPrice", "#fNew", "#fFav"])
     $(id).addEventListener("input", () => render());
   $("#mapBtn").addEventListener("click", toggleMap);
+  $("#more").addEventListener("click", () => { SHOWN += PAGE; render(false); });
   render();
 }
 
@@ -204,7 +210,7 @@ function render(refit = true) {
     if (strat && l.v.estrategia !== strat) return false;
     if (st && (u.estado || "Nuevo") !== st) return false;
     if (!st && u.estado === "Descartado") return false;
-    if ((!isHome(l) && l.v.puntuacion < minScore) || l.price > maxPrice) return false;
+    if ((!unscored(l) && l.v.puntuacion < minScore) || l.price > maxPrice) return false;
     if (onlyNew && l.first_seen !== DATA.meta.hoy) return false;
     if (onlyFav && !u.fav) return false;
     if (q && !`${l.title} ${l.location} ${l.desc}`.toLowerCase().includes(q)) return false;
@@ -215,7 +221,10 @@ function render(refit = true) {
     price: (a, b) => a.price - b.price, recent: (a, b) => b.first_seen.localeCompare(a.first_seen) };
   VIEW.sort(sorters[$("#sort").value]);
   $("#count").textContent = `${VIEW.length} anuncios`;
-  $("#grid").innerHTML = VIEW.slice(0, 300).map(card).join("") || `<div class="empty">Sin resultados con estos filtros.</div>`;
+  if (refit) SHOWN = PAGE;   // un filtro nuevo vuelve a la primera tanda
+  $("#grid").innerHTML = VIEW.slice(0, SHOWN).map(card).join("") || `<div class="empty">Sin resultados con estos filtros.</div>`;
+  $("#more").hidden = VIEW.length <= SHOWN;
+  $("#more").textContent = `Mostrar más (${VIEW.length - SHOWN} restantes)`;
   const located = VIEW.filter(l => l.geo).length;
   $("#mapInfo").textContent = DATA.listings.some(l => l.geo)
     ? `${located} de ${VIEW.length} anuncios en el mapa`

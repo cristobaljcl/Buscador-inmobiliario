@@ -86,7 +86,8 @@ class Geocoder:
         if not city:
             return None
         prov = zone.get("provincia", "")
-        center = tuple(map(float, zone["idealista_api"]["center"].split(","))) if zone.get("idealista_api") else None
+        center = zone.get("centro") or (zone.get("idealista_api") or {}).get("center")
+        center = tuple(map(float, center.split(","))) if center else None
         candidates = []
         title = l.get("title") or ""
         m = STREET.search(title)

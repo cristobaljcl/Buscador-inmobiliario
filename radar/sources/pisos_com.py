@@ -98,9 +98,10 @@ class PisosCom:
             results.extend(cards)
         return results
 
-    def sales(self, slug: str, max_price: int, pages: int) -> list[dict]:
-        # Orden "más recientes" para capturar las novedades del día
-        return self._crawl(f"/venta/{slug}/hasta-{max_price}/fecharecientedesde-desc/", pages)
+    def sales(self, slug: str, max_price: int, pages: int, min_rooms: int = 0) -> list[dict]:
+        # Orden "más recientes" para capturar las novedades del día; "con-N-habitaciones" = N o más
+        rooms = f"con-{min_rooms}-habitaciones/" if min_rooms >= 2 else ""
+        return self._crawl(f"/venta/{slug}/hasta-{max_price}/{rooms}fecharecientedesde-desc/", pages)
 
     def rentals(self, slug: str, pages: int) -> list[dict]:
         return self._crawl(f"/alquiler/{slug}/fecharecientedesde-desc/", pages)

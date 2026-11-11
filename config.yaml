@@ -96,6 +96,7 @@ estrategias:
   larga: Larga duración
   vacacional: Vacacional
   jubilacion: Jubilación gallinos
+  ofertas: Ofertas aceptables Madrid
 
 zonas:
 
@@ -139,6 +140,34 @@ zonas:
     idealista_match: [madrid, móstoles, mostoles, alcorcón, alcorcon, getafe, leganés, leganes, fuenlabrada]
     idealista_api: {center: "40.4168,-3.7038", distance: 15000}
     aviso_normativo: "Zona tensionada (Ley de Vivienda): posibles topes al alquiler en nuevos contratos. Verificar índice de referencia."
+
+  # Todo Madrid capital hasta 300.000 € con 2+ habitaciones; se lee entero cada día
+  - id: madrid_ofertas
+    nombre: Madrid capital (ofertas)
+    provincia: Madrid
+    estrategia: ofertas
+    itp: 0.06
+    precio_max: 300000
+    m2_min: 0
+    habitaciones_min: 2      # también se filtra en la búsqueda del portal
+    excluir_bajos: false
+    excluir_barrios: [vallecas, "pan bendito", abrantes]
+    ids_propios: true        # comparte anuncios con la zona madrid: se guardan aparte para no mezclarlos
+    paginas_venta: 100       # hasta 3.000 anuncios por portal (para cuando se acaban)
+    paginas_alquiler: 0
+    alquiler_de: madrid      # usa los alquileres de la zona madrid para la valoración
+    alquiler_m2_defecto: 20.0
+    centro: "40.4168,-3.7038"
+    slugs: [pisos-madrid_capital_zona_urbana]
+    fotocasa: [madrid-capital]
+    informe:
+      titulo: Ofertas aceptables Madrid
+      icono: "🏙️"
+      descripcion: "Viviendas en venta en Madrid capital hasta 300.000 €, con 2 habitaciones o más (sin Vallecas, Pan Bendito ni Abrantes)."
+      destinatario: cristobalcl85@gmail.com
+      copia: [nati.seijas@gmail.com, josefinalozano@hotmail.es]
+      listar_todo: false     # son miles: el email lleva novedades y bajadas; el listado completo está en el panel
+      descripcion_panel: 400
 
   - id: murcia
     nombre: Murcia (costa)

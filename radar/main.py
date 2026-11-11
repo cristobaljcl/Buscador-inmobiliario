@@ -8,6 +8,7 @@ Uso:
 import argparse
 import logging
 import os
+import re
 import sys
 import time
 import unicodedata
@@ -54,6 +55,12 @@ def excluded_area(l: dict, z: dict) -> bool:
     return bool(required) and not any(normalize(w) in text for w in required)
 
 
+def zone_center(z: dict) -> list[float] | None:
+    """[lat, lon] de la zona: 'centro' o, si no hay, el centro de búsqueda de la API de Idealista."""
+    center = z.get("centro") or (z.get("idealista_api") or {}).get("center")
+    return [float(c) for c in center.split(",")] if center else None
+
+
 def passes_filters(l: dict, z: dict) -> bool:
     if excluded_area(l, z):
         return False
@@ -77,8 +84,12 @@ def match_zone(text: str, zones: list[dict]) -> dict | None:
 def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
     """Recoge anuncios de todas las fuentes. Devuelve {listing_id: 'new'|'drop'|'seen'}."""
     statuses: dict[str, str] = {}
+    own_ids = {z["id"] for z in cfg["zonas"] if z.get("ids_propios")}
 
     def store(l: dict):
+        # Zonas que comparten anuncios con otra (p. ej. Ofertas Madrid y Madrid) los guardan con su propio id
+        if l["zone"] in own_ids:
+            l = {**l, "id": f"{l['zone']}/{l['id']}"}
         st = db.upsert_listing(l, today)
         if PRIORITY[st] >= PRIORITY.get(statuses.get(l["id"], "seen"), 0):
             statuses[l["id"]] = st
@@ -92,7 +103,8 @@ def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
                 if r.get("m2") and r["price"] < 15000:
                     db.add_rent_sample({"id": f"pisos:{r['code']}", "zone": z["id"], "location": r["location"],
                                         "price": r["price"], "m2": r["m2"]}, today)
-            sales = pisos.sales(slug, z["precio_max"], z.get("paginas_venta", pc["paginas_venta"]))
+            sales = pisos.sales(slug, z["precio_max"], z.get("paginas_venta", pc["paginas_venta"]),
+                                z["habitaciones_min"])
             log.info("pisos.com %s: %d anuncios de venta", slug, len(sales))
             for s in sales:
                 if passes_filters(s, z):
@@ -109,7 +121,8 @@ def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
                     if r.get("m2") and r["price"] < 15000:
                         db.add_rent_sample({"id": f"fotocasa:{r['code']}", "zone": z["id"], "location": r["location"],
                                             "price": r["price"], "m2": r["m2"]}, today)
-                sales = foto.sales(slug, z["precio_max"], fc.get("paginas_venta", 2))
+                sales = foto.sales(slug, z["precio_max"], z.get("paginas_venta", fc.get("paginas_venta", 2)),
+                                   z["habitaciones_min"])
                 log.info("Fotocasa %s: %d anuncios de venta", slug, len(sales))
                 for s in sales:
                     if passes_filters(s, z):
@@ -162,16 +175,38 @@ def collect(cfg: dict, db: DB, today: str, errors: list[str]) -> dict[str, str]:
     return statuses
 
 
+def area_key(location: str | None) -> str:
+    """Distrito (grandes ciudades) o municipio de la ubicación, normalizado: 'Zofío (Distrito Usera. Madrid
+    Capital)' y 'Zofio (Distrito Usera. Madrid)' dan 'usera'."""
+    loc = location or ""
+    m = re.search(r"Distrito ([^.)]+)", loc)
+    if m:
+        return normalize(m.group(1).strip())
+    m = re.search(r"\(([^()]*)\)\s*$", loc)
+    return normalize(re.sub(r"\s+capital$", "", (m.group(1) if m else loc).strip(), flags=re.I))
+
+
 def dedupe(listings: list[dict]) -> list[dict]:
-    """Agrupa el mismo inmueble publicado en varios portales (zona + precio + m² + habitaciones)."""
-    groups: dict[tuple, dict] = {}
+    """Agrupa el mismo inmueble publicado en varios portales: misma zona, precio, m², habitaciones y
+    distrito/municipio, y como mucho un anuncio por portal (dos del mismo portal son pisos distintos)."""
+    groups: dict[tuple, list[dict]] = {}
+    out = []
     for l in sorted(listings, key=lambda x: -len(x.get("description") or "")):
-        k = (l["zone"], l["price"], l.get("m2"), l.get("rooms"))
-        if not l.get("m2") or k not in groups:
-            groups.setdefault(k if l.get("m2") else (l["id"],), {**l, "otros_portales": []})
+        if not l.get("m2"):
+            out.append({**l, "otros_portales": []})
+            continue
+        k = (l["zone"], l["price"], l["m2"], l.get("rooms"), area_key(l.get("location")))
+        group = next((g for g in groups.get(k, []) if l["source"] not in g["_sources"]), None)
+        if group:
+            group["otros_portales"].append(l["url"])
+            group["_sources"].add(l["source"])
         else:
-            groups[k]["otros_portales"].append(l["url"])
-    return list(groups.values())
+            group = {**l, "otros_portales": [], "_sources": {l["source"]}}
+            groups.setdefault(k, []).append(group)
+            out.append(group)
+    for g in out:
+        g.pop("_sources", None)
+    return out
 
 
 def run(args):
@@ -197,8 +232,9 @@ def run(args):
 
     # ---- valoración ----------------------------------------------------------
     rent_models, sale_models = {}, {}
-    for zid in zones:
-        rent_models[zid] = PriceModel(db.rent_samples(zid, today), lo=4, hi=35)  # >35 €/m²: temporada/lujo
+    for zid, z in zones.items():
+        # 'alquiler_de': la zona usa los alquileres de otra (Ofertas Madrid no lee alquileres propios)
+        rent_models[zid] = PriceModel(db.rent_samples(z.get("alquiler_de", zid), today), lo=4, hi=35)  # >35 €/m²: temporada/lujo
         sale_models[zid] = PriceModel([l for l in active if l["zone"] == zid], lo=300, hi=15000)
     for l in active:
         z = zones[l["zone"]]
@@ -245,20 +281,24 @@ def run(args):
             "nuevos": sum(1 for l in zl if l["_status"] == "new"), "activos": len(zl),
             "mejor_multiplo": min((l["valuation"]["multiplo"] for l in zl), default=None),
             "alquiler_m2": round(rent_m2, 1) if rent_m2 else None, "venta_m2": round(sale_m2) if sale_m2 else None,
-            "centro": [float(c) for c in z["idealista_api"]["center"].split(",")] if z.get("idealista_api") else None,
+            "centro": zone_center(z),
         })
 
     # ---- panel web -------------------------------------------------------------
     site_pw = os.environ.get("SITE_PASSWORD")
     if site_pw:
-        published = by_score[:cfg["web"]["max_anuncios"]]
+        # Las zonas con informe propio se publican enteras; las de inversión, solo las mejor puntuadas
+        published = ([l for l in by_score if l["zone"] in own_report]
+                     + investing[:cfg["web"]["max_anuncios"]])
         errors.extend(geocode_listings(db, published, zones, cfg["web"].get("mapa_consultas_max", 400)))
         web_items = []
         for l in published:
+            # Descripción más corta en zonas grandes para que el panel no pese demasiado en el móvil
+            desc_len = zones[l["zone"]].get("informe", {}).get("descripcion_panel", 1500)
             web_items.append({k: l.get(k) for k in ("id", "source", "zone", "zone_name", "url", "title", "location",
                                                     "price", "m2", "rooms", "baths", "floor", "photo", "first_seen",
                                                     "last_seen", "otros_portales", "geo")}
-                             | {"desc": (l.get("description") or "")[:1500], "v": l["valuation"],
+                             | {"desc": (l.get("description") or "")[:desc_len], "v": l["valuation"],
                                 "hist": db.price_history(l["id"]), "status": l["_status"]})
         meta = {"generado": now.strftime("%d/%m/%Y %H:%M"), "hoy": today, "zonas": zone_stats,
                 "financiacion": cfg["financiacion"], "estrategias": cfg.get("estrategias", {})}
@@ -286,7 +326,10 @@ def run(args):
                           and (l["source"] == "idealista" or l["last_seen"] >= recent)), key=lambda l: l["price"])
         emails.append((f"informe_{zid}.html", z["informe"]["destinatario"], z["informe"].get("copia", []),
                        *report.build_family_email(now.strftime("%d/%m"), z["informe"]["titulo"], z["nombre"],
-                                                  z["precio_max"], current, today)))
+                                                  z["precio_max"], current, today,
+                                                  subtitle=z["informe"].get("descripcion"),
+                                                  list_all=z["informe"].get("listar_todo", True),
+                                                  icon=z["informe"].get("icono", "🐔"))))
     out = ROOT / "out"
     out.mkdir(exist_ok=True)
     gmail_user, gmail_pw = gmail_credentials()
@@ -299,7 +342,7 @@ def run(args):
             continue
         try:
             mailer.send(gmail_user, gmail_pw, to, subject, html, cc)
-            sent = sent or to == cfg["email"]["destinatario"]
+            sent = sent or filename == "informe.html"  # el informe principal marca el día como enviado
             log.info("Informe enviado a %s%s", to, f" (copia: {', '.join(cc)})" if cc else "")
         except Exception:  # noqa: BLE001
             send_failed = True
