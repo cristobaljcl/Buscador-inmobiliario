@@ -36,6 +36,15 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # La base de datos y el panel viven en la rama "datos", que solo guarda la última versión (sin historial)
+      # para que el repositorio no crezca cada día. Si no se puede leer, no se ejecuta: así nunca se pisan
+      # los datos buenos con una copia antigua.
+      - name: Recuperar base de datos y panel
+        id: restore
+        run: |
+          git fetch --depth=1 origin datos
+          git checkout FETCH_HEAD -- data docs
+
       - name: Ejecutar radar
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
@@ -52,11 +61,12 @@ jobs:
           fi
 
       - name: Guardar base de datos y panel
-        if: always()
+        if: always() && steps.restore.outcome == 'success'
         run: |
           git config user.name "radar-bot"
           git config user.email "radar-bot@users.noreply.github.com"
-          for p in data docs; do [ -e "$p" ] && git add "$p"; done
-          git diff --cached --quiet || git commit -m "Radar $(date -u +%F)"
-          git pull --rebase   # la ejecución espera horas: puede haber commits nuevos en el repositorio
-          git push
+          git checkout -q --orphan datos-nuevo
+          git rm -r -q --cached .
+          git add -f data docs
+          git commit -q -m "Radar $(date -u +%F)"
+          git push -f origin datos-nuevo:datos   # sustituye la versión anterior: un único commit

@@ -351,6 +351,10 @@ def run(args):
     stats = {"activos": len(listings), "top": len(top), "bajadas": len(drops), "errores": errors}
     if sent:
         db.mark_sent(today, now.isoformat(), stats)
+    db.conn.commit()
+    pruned = db.prune(today)
+    if pruned:
+        log.info("Base de datos: %d anuncios retirados hace más de 60 días eliminados", pruned)
     db.close()
     log.info("Hecho: %s", stats)
     if send_failed:

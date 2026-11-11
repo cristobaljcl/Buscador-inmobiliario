@@ -51,7 +51,8 @@ En **Settings → Secrets and variables → Actions → New repository secret**,
 | `IDEALISTA_API_KEY` / `IDEALISTA_API_SECRET` | Credenciales de <https://developers.idealista.com> | Opcional |
 
 ### 4. Panel web (GitHub Pages)
-**Settings → Pages → Source: Deploy from a branch → Branch `main`, carpeta `/docs`**.
+**Settings → Pages → Source: Deploy from a branch → Branch `datos`, carpeta `/docs`**.
+La base de datos y el panel se guardan en la rama `datos`. Cada ejecución la sustituye por un único commit sin historial, así el repositorio no crece cada día. El código está en `main`. Los anuncios que llevan 60 días sin aparecer se borran automáticamente.
 La URL será `https://TU_USUARIO.github.io/radar-inmobiliario/`. Ponla en `web.url` de `config.yaml`.
 En el móvil, abre la URL y elige "Añadir a pantalla de inicio" para usarla como app.
 

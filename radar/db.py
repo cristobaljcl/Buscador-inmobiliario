@@ -133,6 +133,20 @@ class DB:
         rows = self.conn.execute("SELECT * FROM rent_samples WHERE zone=? AND seen >= ?", (zone, since)).fetchall()
         return [dict(r) for r in rows]
 
+    # ---- mantenimiento -----------------------------------------------------
+    def prune(self, today: str, listing_days: int = 60, rent_days: int = 180) -> int:
+        """Borra anuncios sin ver en `listing_days` días (vendidos o retirados) con su histórico, y muestras de
+        alquiler más antiguas que las que usa la valoración. Después compacta el archivo."""
+        since = (date.fromisoformat(today) - timedelta(days=listing_days)).isoformat()
+        rent_since = (date.fromisoformat(today) - timedelta(days=rent_days)).isoformat()
+        self.conn.execute("DELETE FROM price_history WHERE listing_id IN (SELECT id FROM listings WHERE last_seen < ?)",
+                          (since,))
+        removed = self.conn.execute("DELETE FROM listings WHERE last_seen < ?", (since,)).rowcount
+        self.conn.execute("DELETE FROM rent_samples WHERE seen < ?", (rent_since,))
+        self.conn.commit()
+        self.conn.execute("VACUUM")
+        return removed
+
     # ---- ejecuciones -------------------------------------------------------
     def already_sent(self, day: str) -> bool:
         row = self.conn.execute("SELECT sent_at FROM runs WHERE day=?", (day,)).fetchone()
