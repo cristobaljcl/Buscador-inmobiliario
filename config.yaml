@@ -152,6 +152,17 @@ zonas:
     habitaciones_min: 2      # también se filtra en la búsqueda del portal
     excluir_bajos: false
     excluir_barrios: [vallecas, "pan bendito", abrantes]
+    # Anuncios que no son una vivienda entera (expresiones regulares sobre título + descripción, sin tildes)
+    excluir_texto:
+      - 'participacion'
+      - 'pro ?indiv'                                     # proindiviso (y la errata "proindivoso")
+      - '\b\d{1,2}([.,]\d+)? ?% (de la|del|de una|de un) (vivienda|inmueble|propiedad|piso|casa)'  # "8% de la vivienda"
+      - '\bel \d{1,2}([.,]\d+)? ?%? del pleno dominio'   # "se vende el 20 del pleno dominio"
+      - '(mitad|cuota|parte) indivisa'
+      - 'nuda propiedad'
+      - 'cesion de remate'
+      - 'cesion de credito|venta de(l)? credito|compra de (deuda|credito)|credito hipotecario'
+      - 'casa prefabricada'
     ids_propios: true        # comparte anuncios con la zona madrid: se guardan aparte para no mezclarlos
     paginas_venta: 100       # hasta 3.000 anuncios por portal (para cuando se acaban)
     paginas_alquiler: 0

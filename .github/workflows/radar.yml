@@ -66,7 +66,7 @@ jobs:
           git config user.name "radar-bot"
           git config user.email "radar-bot@users.noreply.github.com"
           git checkout -q --orphan datos-nuevo
-          git rm -r -q --cached .
+          git read-tree --empty   # vacía el índice (git rm --cached falla si el radar modificó los ficheros restaurados)
           git add -f data docs
           git commit -q -m "Radar $(date -u +%F)"
           git push -f origin datos-nuevo:datos   # sustituye la versión anterior: un único commit

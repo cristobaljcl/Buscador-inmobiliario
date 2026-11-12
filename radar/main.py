@@ -61,8 +61,22 @@ def zone_center(z: dict) -> list[float] | None:
     return [float(c) for c in center.split(",")] if center else None
 
 
+def excluded_text(l: dict, z: dict) -> bool:
+    """El anuncio no es una vivienda entera (participación, nuda propiedad, crédito…): expresiones regulares
+    de 'excluir_texto' buscadas en título y descripción, sin tildes ni mayúsculas."""
+    patterns = z.get("excluir_texto")
+    if not patterns:
+        return False
+    text = normalize(f"{l.get('title') or ''} {l.get('description') or ''}")
+    return any(re.search(p, text) for p in patterns)
+
+
+def excluded(l: dict, z: dict) -> bool:
+    return excluded_area(l, z) or excluded_text(l, z)
+
+
 def passes_filters(l: dict, z: dict) -> bool:
-    if excluded_area(l, z):
+    if excluded(l, z):
         return False
     if l["price"] > z["precio_max"]:
         return False
@@ -227,8 +241,8 @@ def run(args):
     db.conn.commit()
 
     zones = {z["id"]: z for z in cfg["zonas"]}
-    # El filtro de barrios también se aplica a lo ya guardado, por si la lista cambia
-    active = [l for l in db.active_listings(today) if l["zone"] in zones and not excluded_area(l, zones[l["zone"]])]
+    # Los filtros de barrios y de texto también se aplican a lo ya guardado, por si las listas cambian
+    active = [l for l in db.active_listings(today) if l["zone"] in zones and not excluded(l, zones[l["zone"]])]
 
     # ---- valoración ----------------------------------------------------------
     rent_models, sale_models = {}, {}
