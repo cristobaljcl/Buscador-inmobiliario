@@ -163,6 +163,11 @@ zonas:
       - 'cesion de remate'
       - 'cesion de credito|venta de(l)? credito|compra de (deuda|credito)|credito hipotecario'
       - 'casa prefabricada'
+      # Viviendas ocupadas o sin posesión ("desocupada" no coincide: \b exige que "ocupad" empiece palabra)
+      - '\bocupad[oa]s?\b'
+      - '\bokupa'
+      - 'sin posesion'
+      - '(posible|riesgo de|en situacion de) ocupacion|ocupacion ilegal'
     ids_propios: true        # comparte anuncios con la zona madrid: se guardan aparte para no mezclarlos
     paginas_venta: 100       # hasta 3.000 anuncios por portal (para cuando se acaban)
     paginas_alquiler: 0
