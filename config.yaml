@@ -168,6 +168,10 @@ zonas:
       - '\bokupa'
       - 'sin posesion'
       - '(posible|riesgo de|en situacion de) ocupacion|ocupacion ilegal'
+      # Subastas y ventas por pujas (Fotocasa añade "[Datos del portal: subasta]")
+      - 'subasta'
+      - '\bpuj(a|as|ar)\b'
+      - 'mejor postor'
     ids_propios: true        # comparte anuncios con la zona madrid: se guardan aparte para no mezclarlos
     paginas_venta: 100       # hasta 3.000 anuncios por portal (para cuando se acaban)
     paginas_alquiler: 0
